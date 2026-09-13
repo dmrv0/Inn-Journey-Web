@@ -1,0 +1,379 @@
+/* ---------------------------------------------------------------------------
+   Design tokens.
+
+   Light only, and deliberately so: the product is read in daylight, on screens
+   of wildly varying quality, and a single well-contrasted palette is easier to
+   trust than two half-tuned ones.
+
+   --lamp carries meaning rather than style: it marks an occupied night on the
+   occupancy ribbon and is used nowhere else, which is what keeps a month of
+   nights readable at a glance.
+   --------------------------------------------------------------------------- */
+
+:root {
+  color-scheme: light;
+
+  /* Grounds and surfaces. Cards are pure white on a tinted ground so they
+     separate without needing heavy borders. */
+  --ground: #f1f4ef;
+  --surface: #ffffff;
+  --surface-sunk: #e4e9df;
+
+  /* Ink. Near-black body text; the two softer tones still clear AA on white. */
+  --ink: #12181f;
+  --ink-soft: #47525d;
+  --ink-faint: #66717c;
+
+  --line: #ccd4c6;
+  --line-strong: #aab5a2;
+
+  --pool: #0a5450;
+  --pool-soft: #dfeeeb;
+  --lamp: #e09612;
+  --lamp-soft: #fdefd2;
+  --brick: #a33a30;
+  --brick-soft: #f8e4e1;
+
+  --focus: #0a5450;
+
+  /* Type. Archivo for display, Inter for everything read at length, and a mono
+     for every numeral so dates and prices align in a column. */
+  --display: 'Archivo', 'Segoe UI', Arial, sans-serif;
+  --body: 'Inter', -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --mono: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+
+  --s1: 0.25rem;
+  --s2: 0.5rem;
+  --s3: 0.75rem;
+  --s4: 1rem;
+  --s5: 1.5rem;
+  --s6: 2rem;
+  --s7: 3rem;
+  --s8: 4.5rem;
+
+  --radius: 4px;
+  --radius-lg: 8px;
+
+  --shadow: 0 1px 2px rgb(18 24 31 / 5%), 0 6px 16px -8px rgb(18 24 31 / 14%);
+  --shadow-lift: 0 2px 4px rgb(18 24 31 / 6%), 0 12px 28px -12px rgb(18 24 31 / 20%);
+
+  --page: 1180px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 17px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--display);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  margin: 0 0 var(--s3);
+}
+
+h1 {
+  font-size: clamp(2rem, 1.5rem + 2.2vw, 3rem);
+  font-weight: 800;
+}
+
+h2 {
+  font-size: clamp(1.35rem, 1.15rem + 0.9vw, 1.8rem);
+}
+
+h3 {
+  font-size: 1.12rem;
+  font-weight: 700;
+}
+
+p {
+  margin: 0 0 var(--s4);
+}
+
+a {
+  color: var(--pool);
+  font-weight: 500;
+  text-underline-offset: 3px;
+}
+
+a:hover {
+  color: #073d3a;
+}
+
+/* Every numeral in the product shares one mechanical voice, and lines up. */
+.num,
+time,
+code,
+kbd {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* An eyebrow labels a section; it never decorates one. */
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin: 0 0 var(--s2);
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+.page {
+  max-width: var(--page);
+  margin: 0 auto;
+  padding: 0 var(--s5);
+}
+
+.muted {
+  color: var(--ink-soft);
+}
+
+.center {
+  text-align: center;
+}
+
+/* --- Controls ------------------------------------------------------------ */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s2);
+  padding: 0.72rem 1.3rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: var(--pool);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.97rem;
+  line-height: 1.2;
+  cursor: pointer;
+  text-decoration: none;
+  box-shadow: 0 1px 2px rgb(18 24 31 / 10%);
+  transition: background 120ms ease, box-shadow 120ms ease, transform 80ms ease;
+}
+
+.btn:hover:not(:disabled) {
+  background: #073d3a;
+  color: #fff;
+  box-shadow: var(--shadow);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.btn--ghost {
+  background: var(--surface);
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+
+.btn--ghost:hover:not(:disabled) {
+  background: var(--surface-sunk);
+  border-color: var(--ink-faint);
+  color: var(--ink);
+}
+
+.btn--danger {
+  background: var(--brick);
+}
+
+.btn--danger:hover:not(:disabled) {
+  background: #863027;
+}
+
+.btn--sm {
+  padding: 0.45rem 0.85rem;
+  font-size: 0.88rem;
+}
+
+.field {
+  display: block;
+  margin-bottom: var(--s4);
+}
+
+.field > label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: var(--s1);
+  color: var(--ink);
+}
+
+.input,
+select.input,
+textarea.input {
+  width: 100%;
+  padding: 0.65rem 0.8rem;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  color: var(--ink);
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.input::placeholder {
+  color: var(--ink-faint);
+}
+
+.input:hover {
+  border-color: var(--ink-faint);
+}
+
+.input:focus {
+  border-color: var(--pool);
+  box-shadow: 0 0 0 3px var(--pool-soft);
+  outline: none;
+}
+
+.input--num {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.error-text {
+  color: var(--brick);
+  font-size: 0.86rem;
+  font-weight: 500;
+  margin-top: var(--s1);
+}
+
+/* --- Surfaces ------------------------------------------------------------ */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+}
+
+.tag {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: var(--surface-sunk);
+  border: 1px solid var(--line);
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Status colours are semantic: lamp means held, brick means ended badly. */
+.status {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: var(--surface-sunk);
+  color: var(--ink-soft);
+}
+
+.status--pending { background: var(--lamp-soft); border-color: #eccd8d; color: #7a5407; }
+.status--confirmed { background: var(--pool-soft); border-color: #a7cdc7; color: #074743; }
+.status--checkedin { background: var(--pool); color: #fff; }
+.status--checkedout { background: var(--surface-sunk); border-color: var(--line); color: var(--ink-soft); }
+.status--cancelled { background: var(--brick-soft); border-color: #e3b3ac; color: #863027; }
+.status--succeeded { background: var(--pool-soft); border-color: #a7cdc7; color: #074743; }
+.status--failed { background: var(--brick-soft); border-color: #e3b3ac; color: #863027; }
+.status--refunded { background: var(--surface-sunk); border-color: var(--line); color: var(--ink-soft); }
+
+/* --- Loading and empty states ------------------------------------------- */
+
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-sunk) 25%, #eef1ea 50%, var(--surface-sunk) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite linear;
+  border-radius: var(--radius);
+}
+
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.empty {
+  padding: var(--s7) var(--s5);
+  text-align: center;
+  color: var(--ink-soft);
+  background: var(--surface);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-lg);
+}
+
+.empty h3 {
+  color: var(--ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

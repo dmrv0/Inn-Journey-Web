@@ -1,0 +1,12 @@
+# Build output must not enter the build context: it is large, and stale
+# artefacts can break a container build.
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
+**/.angular/
+**/wwwroot/uploads/
+**/.vs/
+**/*.user
+tests/
+.git/
