@@ -26,7 +26,11 @@ interface Night {
   standalone: true,
   imports: [NgClass],
   template: `
-    <div class="ribbon" [class.ribbon--compact]="compact()">
+    <div
+      class="ribbon"
+      [class.ribbon--compact]="compact()"
+      [class.ribbon--dark]="tone() === 'dark'"
+    >
       @if (label(); as text) {
         <div class="ribbon__label num">{{ text }}</div>
       }
@@ -136,6 +140,37 @@ interface Night {
       .cell--occupied .cell__day {
         color: #6b4c0d;
       }
+
+      /* On a plate the ground is dark, so free nights become holes in the light
+         rather than blocks of it. --lamp still means occupied, unchanged. */
+      .ribbon--dark .cell {
+        background: rgb(255 255 255 / 13%);
+      }
+
+      .ribbon--dark .cell--weekend:not(.cell--occupied) {
+        background: rgb(255 255 255 / 22%);
+      }
+
+      .ribbon--dark .cell--occupied {
+        background: var(--lamp);
+      }
+
+      .ribbon--dark .cell--selected {
+        outline-color: #fff;
+        background: rgb(255 255 255 / 34%);
+      }
+
+      .ribbon--dark .cell--selected.cell--occupied {
+        background: var(--lamp);
+      }
+
+      .ribbon--dark .cell__day {
+        color: rgb(255 255 255 / 62%);
+      }
+
+      .ribbon--dark .ribbon__label {
+        color: var(--on-night-soft);
+      }
     `,
   ],
 })
@@ -158,6 +193,9 @@ export class RibbonComponent {
 
   readonly showScale = input(true);
   readonly compact = input(false);
+
+  /** Which ground the ribbon sits on. Dark is for the card plates. */
+  readonly tone = input<'light' | 'dark'>('light');
 
   protected readonly nights = computed<Night[]>(() => {
     const taken = new Set(this.occupied());

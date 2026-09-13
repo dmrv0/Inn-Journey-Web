@@ -129,7 +129,8 @@ var healthChecks = builder.Services.AddHealthChecks();
 
 // Only probe the database when a connection string is actually configured, so a
 // misconfigured or test host fails on its own terms rather than here.
-if (builder.Configuration.GetConnectionString("PostgreSQL") is { Length: > 0 } healthConnection)
+if (builder.Configuration.GetConnectionString("PostgreSQL") is { Length: > 0 } healthConnection
+    && !healthConnection.TrimStart().StartsWith("Data Source=", StringComparison.OrdinalIgnoreCase))
     healthChecks.AddNpgSql(healthConnection, name: "database");
 
 var app = builder.Build();
@@ -172,7 +173,12 @@ static async Task MigrateAndSeedAsync(WebApplication app)
     var context = scope.ServiceProvider
         .GetRequiredService<InnJourney.Infra.Data.Contexts.InnJourneyDbContext>();
 
-    await context.Database.MigrateAsync();
+    // The migrations are generated against Npgsql, so they cannot be replayed on
+    // SQLite; there the model builds the schema directly.
+    if (context.Database.ProviderName?.Contains("Sqlite", StringComparison.OrdinalIgnoreCase) == true)
+        await context.Database.EnsureCreatedAsync();
+    else
+        await context.Database.MigrateAsync();
 
     if (app.Configuration.GetValue("Database:SeedOnStartup", true))
         await scope.ServiceProvider.GetRequiredService<DatabaseSeeder>().SeedAsync();

@@ -6,13 +6,12 @@ import { ApiService } from '../core/api.service';
 import { addDays, formatMoney, nightsBetween } from '../core/dates';
 import { Amenity, HotelSummary, PagedResult } from '../core/models';
 import { ToastService } from '../core/toast.service';
-import { RibbonComponent } from '../shared/ribbon.component';
-import { StarsComponent } from '../shared/stars.component';
+import { PlateComponent } from '../shared/plate.component';
 
 @Component({
   selector: 'app-search',
   standalone: true,
-  imports: [FormsModule, RouterLink, RibbonComponent, StarsComponent],
+  imports: [FormsModule, RouterLink, PlateComponent],
   template: `
     <div class="page layout">
       <aside class="filters" aria-label="Filters">
@@ -23,7 +22,7 @@ import { StarsComponent } from '../shared/stars.component';
           <input id="f-city" class="input" [(ngModel)]="city" placeholder="Anywhere" />
         </div>
 
-        <div class="row">
+        <div class="row row--dates">
           <div class="field">
             <label for="f-in">Check in</label>
             <input id="f-in" class="input input--num" type="date" [(ngModel)]="checkIn" />
@@ -120,7 +119,7 @@ import { StarsComponent } from '../shared/stars.component';
         </header>
 
         @if (loading()) {
-          <div class="grid">
+          <div class="grid-cards">
             @for (i of [1, 2, 3, 4]; track i) {
               <div class="card skeleton-card">
                 <div class="skeleton" style="height: 9rem"></div>
@@ -136,61 +135,54 @@ import { StarsComponent } from '../shared/stars.component';
             <button class="btn btn--ghost" type="button" (click)="reset()">Clear filters</button>
           </div>
         } @else {
-          <div class="grid">
+          <div class="grid-cards">
             @for (hotel of hotels(); track hotel.id) {
-              <article class="card hotel">
-                <a class="hotel__media" [routerLink]="['/hotels', hotel.id]">
-                  @if (hotel.coverImageUrl) {
-                    <img [src]="hotel.coverImageUrl" [alt]="hotel.name" loading="lazy" />
-                  } @else {
-                    <span class="hotel__placeholder num">{{ initials(hotel.name) }}</span>
-                  }
-                </a>
-
-                <div class="hotel__body">
-                  <div class="hotel__head">
-                    <h3>
-                      <a [routerLink]="['/hotels', hotel.id]">{{ hotel.name }}</a>
-                    </h3>
-                    <app-stars [value]="hotel.stars" />
-                  </div>
-
-                  <p class="hotel__where muted">
-                    {{ hotel.address.city }}, {{ hotel.address.country }}
-                  </p>
-
-                  @if (hotel.reviewCount > 0) {
-                    <p class="rating">
-                      <span class="rating__score num">{{ hotel.averageRating.toFixed(1) }}</span>
-                      <span class="muted">from {{ hotel.reviewCount }} review{{ hotel.reviewCount === 1 ? '' : 's' }}</span>
-                    </p>
-                  } @else {
-                    <p class="muted small">No reviews yet</p>
-                  }
-
-                  @if (appliedSpan(); as span) {
-                    <app-ribbon
-                      class="hotel__ribbon"
-                      [from]="span.from"
-                      [to]="span.to"
-                      [compact]="true"
-                      [showScale]="false"
-                      [selectedFrom]="span.from"
-                      [selectedTo]="span.to"
-                    />
-                  }
-
-                  <div class="hotel__foot">
-                    @if (hotel.fromPrice !== null) {
-                      <span class="price">
-                        <span class="num">{{ money(hotel.fromPrice) }}</span>
-                        <span class="muted small">per night</span>
+              <article class="card card--stack">
+                <a class="plate-link" [routerLink]="['/hotels', hotel.id]">
+                  <app-plate
+                    [seed]="hotel.id"
+                    [src]="hotel.coverImageUrl"
+                    [alt]="hotel.name"
+                    [label]="hotel.name"
+                    [from]="plateWindow()?.from ?? null"
+                    [to]="plateWindow()?.to ?? null"
+                    [selectedFrom]="plateWindow()?.selectedFrom ?? null"
+                    [selectedTo]="plateWindow()?.selectedTo ?? null"
+                  >
+                    <span class="chip">{{ hotel.stars }}&#9733;</span>
+                    @if (hotel.reviewCount > 0) {
+                      <span class="chip">
+                        {{ hotel.averageRating.toFixed(1) }} &middot; {{ hotel.reviewCount }}
+                        review{{ hotel.reviewCount === 1 ? '' : 's' }}
                       </span>
                     }
-                    <a class="btn btn--sm" [routerLink]="['/hotels', hotel.id]" [queryParams]="spanParams()">
-                      See rooms
-                    </a>
-                  </div>
+                  </app-plate>
+                </a>
+
+                <div class="card__body">
+                  <h3 class="card__title">
+                    <a [routerLink]="['/hotels', hotel.id]">{{ hotel.name }}</a>
+                  </h3>
+
+                  <p class="where">
+                    <span class="where__pin" aria-hidden="true"></span>
+                    {{ hotel.address.city }}, {{ hotel.address.country }}
+                  </p>
+                </div>
+
+                <div class="price-row">
+                  @if (hotel.fromPrice !== null) {
+                    <span class="price-row__amount">{{ money(hotel.fromPrice) }}</span>
+                    <span class="price-row__unit">per night</span>
+                  }
+
+                  <a
+                    class="btn btn--sm btn--pill price-row__go"
+                    [routerLink]="['/hotels', hotel.id]"
+                    [queryParams]="spanParams()"
+                  >
+                    See rooms
+                  </a>
                 </div>
               </article>
             }
@@ -219,7 +211,7 @@ import { StarsComponent } from '../shared/stars.component';
     `
       .layout {
         display: grid;
-        grid-template-columns: 16rem 1fr;
+        grid-template-columns: 17rem 1fr;
         gap: var(--s6);
         padding-top: var(--s6);
         align-items: start;
@@ -253,6 +245,11 @@ import { StarsComponent } from '../shared/stars.component';
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: var(--s3);
+      }
+
+      /* Dates carry their own picker chrome, so they get the full column. */
+      .row--dates {
+        grid-template-columns: 1fr;
       }
 
       .amenities {
@@ -301,111 +298,14 @@ import { StarsComponent } from '../shared/stars.component';
         min-width: 12rem;
       }
 
-      .grid {
-        display: grid;
-        gap: var(--s4);
-        grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
-      }
-
-      .hotel {
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-      }
-
-      .hotel__media {
+      .plate-link {
         display: block;
-        aspect-ratio: 16 / 10;
-        background: var(--surface-sunk);
-        display: grid;
-        place-items: center;
       }
 
-      .hotel__media img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-      }
-
-      .hotel__placeholder {
-        font-size: 2rem;
-        font-weight: 600;
-        color: var(--ink-faint);
-        letter-spacing: 0.1em;
-      }
-
-      .hotel__body {
-        padding: var(--s4);
-        display: flex;
-        flex-direction: column;
-        gap: var(--s2);
-        flex: 1 0 auto;
-      }
-
-      .hotel__head {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        gap: var(--s2);
-      }
-
-      .hotel__head h3 {
-        margin: 0;
-        font-size: 1.05rem;
-      }
-
-      .hotel__head a {
-        color: inherit;
-        text-decoration: none;
-      }
-
-      .hotel__head a:hover {
-        text-decoration: underline;
-      }
-
-      .hotel__where,
-      .small {
-        font-size: 0.85rem;
-        margin: 0;
-      }
-
-      .rating {
-        display: flex;
-        align-items: baseline;
-        gap: var(--s2);
-        margin: 0;
-        font-size: 0.85rem;
-      }
-
-      .rating__score {
-        font-weight: 600;
-        color: var(--pool);
-        font-size: 1rem;
-      }
-
-      .hotel__ribbon {
-        margin: var(--s2) 0;
-      }
-
-      .hotel__foot {
-        margin-top: auto;
-        padding-top: var(--s3);
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: var(--s3);
-        border-top: 1px solid var(--line);
-      }
-
-      .price {
-        display: flex;
-        flex-direction: column;
-        line-height: 1.2;
-      }
-
-      .price .num {
-        font-size: 1.05rem;
-        font-weight: 600;
+      /* The price row ends the card, so the action lives in it rather than in a
+         row of its own. */
+      .price-row__go {
+        margin-left: auto;
       }
 
       .pager {
@@ -452,6 +352,24 @@ export class SearchComponent implements OnInit {
   protected readonly nights = computed(() => {
     const span = this.appliedSpan();
     return span ? nightsBetween(span.from, span.to) : 0;
+  });
+
+  /**
+   * The month a card plate draws. The span on its own would be three or four
+   * cells stretched across the plate; framed by the weeks around it, the same
+   * stay reads as a stay.
+   */
+  protected readonly plateWindow = computed(() => {
+    const span = this.appliedSpan();
+
+    if (span === null) return null;
+
+    return {
+      from: addDays(span.from, -4),
+      to: addDays(span.from, 24),
+      selectedFrom: span.from,
+      selectedTo: span.to,
+    };
   });
 
   ngOnInit(): void {
@@ -570,11 +488,4 @@ export class SearchComponent implements OnInit {
     return formatMoney(value);
   }
 
-  protected initials(name: string): string {
-    return name
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((w) => w[0]?.toUpperCase() ?? '')
-      .join('');
-  }
 }

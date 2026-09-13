@@ -34,6 +34,19 @@
   --brick: #a33a30;
   --brick-soft: #f8e4e1;
 
+  /* Night. The dark register: floating nav, footer, and the card plates. Not a
+     dark theme — the page stays light; these are dark objects on a light page. */
+  --night: #0b1614;
+  --night-2: #16302c;
+  --on-night: #f4f7f4;
+  --on-night-soft: #9fb2ad;
+  --night-line: rgb(255 255 255 / 14%);
+
+  /* A saving is a fact about money, so it gets its own colour rather than
+     borrowing one that already means something else. */
+  --save: #1b6b3a;
+  --save-soft: #e0f0e5;
+
   --focus: #0a5450;
 
   /* Type. Archivo for display, Inter for everything read at length, and a mono
@@ -51,13 +64,20 @@
   --s7: 3rem;
   --s8: 4.5rem;
 
-  --radius: 4px;
-  --radius-lg: 8px;
+  --radius: 6px;
+  --radius-lg: 14px;
+  --radius-xl: 22px;
+  --radius-pill: 999px;
 
   --shadow: 0 1px 2px rgb(18 24 31 / 5%), 0 6px 16px -8px rgb(18 24 31 / 14%);
   --shadow-lift: 0 2px 4px rgb(18 24 31 / 6%), 0 12px 28px -12px rgb(18 24 31 / 20%);
 
-  --page: 1180px;
+  /* The floating nav is out of flow, so every page reserves its height and the
+     hero pulls back up under it. */
+  --nav-h: 5.25rem;
+
+  --page: 1200px;
+  --page-wide: 1440px;
 }
 
 *,
@@ -254,6 +274,7 @@ img {
 select.input,
 textarea.input {
   width: 100%;
+  min-width: 0;
   padding: 0.65rem 0.8rem;
   background: var(--surface);
   border: 1px solid var(--line-strong);
@@ -376,4 +397,226 @@ textarea.input {
   overflow: hidden;
   clip: rect(0 0 0 0);
   white-space: nowrap;
+}
+
+/* --- Editorial layout primitives ----------------------------------------- */
+
+/* A wider gutter for the marketing surfaces; .page stays the reading width. */
+.page--wide {
+  max-width: var(--page-wide);
+  margin: 0 auto;
+  padding: 0 var(--s5);
+}
+
+/* Section headers are centred and carry a mono eyebrow, so a scrolled page
+   announces each change of subject in the same voice. */
+.section-head {
+  text-align: center;
+  max-width: 44rem;
+  margin: 0 auto var(--s6);
+}
+
+.section-head h2 {
+  font-size: clamp(1.6rem, 1.2rem + 1.6vw, 2.4rem);
+  margin-bottom: var(--s2);
+}
+
+.section-head p {
+  color: var(--ink-soft);
+  font-size: 0.98rem;
+  margin: 0;
+}
+
+/* --- Chips, pills, badges ------------------------------------------------ */
+
+/* A chip rides on top of a plate, so it is glass rather than paper. */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: var(--radius-pill);
+  background: rgb(11 22 20 / 62%);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid rgb(255 255 255 / 18%);
+  color: var(--on-night);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+/* A pill sits on paper and labels it. */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.8rem;
+  border-radius: var(--radius-pill);
+  background: var(--pool-soft);
+  color: #074743;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.pill--night {
+  background: rgb(255 255 255 / 12%);
+  border: 1px solid rgb(255 255 255 / 22%);
+  color: var(--on-night);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+/* --- Money ---------------------------------------------------------------- */
+
+/* The price row is the card's conclusion: it sits in a tinted well so the eye
+   lands on it last and knows it is the number that matters. */
+.price-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  padding: var(--s3) var(--s4);
+  background: var(--ground);
+  border-top: 1px solid var(--line);
+}
+
+.price-row__amount {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 1.32rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  line-height: 1.1;
+}
+
+.price-row__unit {
+  font-size: 0.78rem;
+  color: var(--ink-faint);
+}
+
+/* --- Dark register -------------------------------------------------------- */
+
+/* Applied to the nav and the footer. Not a theme: a dark object on a light page,
+   which is why the tokens are scoped here rather than swapped on :root. */
+.on-night {
+  background: var(--night);
+  color: var(--on-night);
+}
+
+.on-night h1,
+.on-night h2,
+.on-night h3,
+.on-night h4 {
+  color: var(--on-night);
+}
+
+.on-night a {
+  color: var(--on-night-soft);
+  text-decoration: none;
+}
+
+.on-night a:hover {
+  color: var(--on-night);
+}
+
+.on-night .muted {
+  color: var(--on-night-soft);
+}
+
+.on-night :focus-visible {
+  outline-color: var(--lamp-soft);
+}
+
+/* --- Buttons, extended ---------------------------------------------------- */
+
+.btn--pill {
+  border-radius: var(--radius-pill);
+  padding-inline: 1.5rem;
+}
+
+/* The one button that appears on dark ground, in the nav. */
+.btn--night {
+  background: var(--on-night);
+  color: var(--night);
+}
+
+.btn--night:hover:not(:disabled) {
+  background: #fff;
+  color: var(--night);
+}
+
+/* --- Cards, extended ------------------------------------------------------ */
+
+/* An editorial card is a column: plate, body, price. It clips its own corners so
+   the plate needs no radius of its own. */
+.card--stack {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+  transition: transform 140ms ease, box-shadow 140ms ease;
+}
+
+.card--stack:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lift);
+}
+
+.card--stack .card__body {
+  padding: var(--s4);
+  flex: 1 1 auto;
+}
+
+.card__title {
+  font-family: var(--display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0 0 var(--s1);
+}
+
+.card__title a {
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.card__title a:hover {
+  color: var(--pool);
+}
+
+/* A place line, marked with a pin so it is never mistaken for a heading. */
+.where {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.87rem;
+  color: var(--ink-soft);
+  margin: 0;
+}
+
+.where__pin {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  border: 2px solid var(--pool);
+  flex: 0 0 auto;
+}
+
+/* --- Grids ---------------------------------------------------------------- */
+
+.grid-cards {
+  display: grid;
+  gap: var(--s5);
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card--stack:hover {
+    transform: none;
+  }
 }

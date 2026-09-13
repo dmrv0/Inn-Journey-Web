@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
 import { AuthService } from './core/auth.service';
@@ -12,31 +12,50 @@ import { ToastsComponent } from './shared/toasts.component';
     <a class="skip" href="#main">Skip to content</a>
 
     <header class="masthead">
-      <div class="page masthead__inner">
+      <div class="masthead__pill on-night">
         <a routerLink="/" class="brand" aria-label="Inn Journey, home">
           <span class="brand__mark" aria-hidden="true"></span>
           <span class="brand__name">Inn<span class="brand__thin">Journey</span></span>
         </a>
 
-        <nav class="nav">
-          <a routerLink="/search" routerLinkActive="is-active">Find a room</a>
+        <nav id="main-nav" class="nav" [class.is-open]="menuOpen()" aria-label="Main">
+          <a routerLink="/search" routerLinkActive="is-active" (click)="close()">Find a room</a>
 
           @if (auth.isOwner()) {
-            <a routerLink="/manage" routerLinkActive="is-active">My properties</a>
+            <a routerLink="/manage" routerLinkActive="is-active" (click)="close()">My properties</a>
           }
 
           @if (auth.isAdmin()) {
-            <a routerLink="/admin" routerLinkActive="is-active">Admin</a>
+            <a routerLink="/admin" routerLinkActive="is-active" (click)="close()">Admin</a>
           }
 
           @if (auth.isSignedIn()) {
-            <a routerLink="/account" routerLinkActive="is-active">My stays</a>
-            <button type="button" class="linklike" (click)="auth.logout()">Sign out</button>
-          } @else {
-            <a routerLink="/sign-in" routerLinkActive="is-active">Sign in</a>
-            <a routerLink="/register" class="btn btn--sm">Create account</a>
+            <a routerLink="/account" routerLinkActive="is-active" (click)="close()">My stays</a>
           }
         </nav>
+
+        <div class="actions">
+          @if (auth.isSignedIn()) {
+            <button type="button" class="btn btn--sm btn--pill btn--night" (click)="auth.logout()">
+              Sign out
+            </button>
+          } @else {
+            <a routerLink="/sign-in" class="actions__quiet">Sign in</a>
+            <a routerLink="/register" class="btn btn--sm btn--pill btn--night">Create account</a>
+          }
+
+          <button
+            type="button"
+            class="burger"
+            [attr.aria-expanded]="menuOpen()"
+            aria-controls="main-nav"
+            (click)="toggle()"
+          >
+            <span class="visually-hidden">Menu</span>
+            <span class="burger__bar" aria-hidden="true"></span>
+            <span class="burger__bar" aria-hidden="true"></span>
+          </button>
+        </div>
       </div>
     </header>
 
@@ -44,11 +63,40 @@ import { ToastsComponent } from './shared/toasts.component';
       <router-outlet />
     </main>
 
-    <footer class="footer">
-      <div class="page footer__inner">
-        <span class="num">INN&mdash;JOURNEY</span>
-        <span class="muted">A demonstration booking platform. No real payments are taken.</span>
+    <footer class="footer on-night">
+      <div class="page--wide footer__inner">
+        <div class="footer__lead">
+          <span class="brand__mark" aria-hidden="true"></span>
+          <p class="footer__blurb">
+            Rooms priced and held by the night, with availability worked out across the
+            whole span rather than a single date.
+          </p>
+        </div>
+
+        <nav class="footer__cols" aria-label="Footer">
+          <div>
+            <h4>Book</h4>
+            <a routerLink="/search">Find a room</a>
+            <a routerLink="/account">My stays</a>
+          </div>
+          <div>
+            <h4>Account</h4>
+            <a routerLink="/sign-in">Sign in</a>
+            <a routerLink="/register">Create account</a>
+          </div>
+          <div>
+            <h4>Hosting</h4>
+            <a routerLink="/manage">My properties</a>
+          </div>
+        </nav>
       </div>
+
+      <p class="footer__note page--wide">
+        A demonstration booking platform. Payments are simulated and no card is ever
+        charged or stored.
+      </p>
+
+      <span class="footer__wordmark" aria-hidden="true">Inn Journey</span>
     </footer>
 
     <app-toasts />
@@ -63,6 +111,7 @@ import { ToastsComponent } from './shared/toasts.component';
 
       main {
         flex: 1 0 auto;
+        padding-top: var(--nav-h);
       }
 
       .skip {
@@ -80,21 +129,31 @@ import { ToastsComponent } from './shared/toasts.component';
         border-radius: var(--radius);
       }
 
+      /* The nav floats: out of flow, so a hero can run full-bleed behind it. */
       .masthead {
-        border-bottom: 1px solid var(--line);
-        background: var(--ground);
-        position: sticky;
+        position: fixed;
         top: 0;
-        z-index: 50;
+        left: 0;
+        right: 0;
+        z-index: 60;
+        padding: var(--s4) var(--s5) 0;
+        pointer-events: none;
       }
 
-      .masthead__inner {
+      .masthead__pill {
+        pointer-events: auto;
+        max-width: var(--page-wide);
+        margin: 0 auto;
         display: flex;
         align-items: center;
-        justify-content: space-between;
         gap: var(--s5);
-        min-height: 4rem;
-        flex-wrap: wrap;
+        padding: 0.55rem 0.6rem 0.55rem 1.15rem;
+        border-radius: var(--radius-pill);
+        background: rgb(11 22 20 / 82%);
+        backdrop-filter: blur(14px) saturate(140%);
+        -webkit-backdrop-filter: blur(14px) saturate(140%);
+        border: 1px solid var(--night-line);
+        box-shadow: 0 10px 30px -14px rgb(11 22 20 / 55%);
       }
 
       .brand {
@@ -102,85 +161,221 @@ import { ToastsComponent } from './shared/toasts.component';
         align-items: center;
         gap: var(--s2);
         text-decoration: none;
-        color: var(--ink);
+        color: var(--on-night);
+        flex: 0 0 auto;
       }
 
       /* Two bars: a stay, and the turnover beside it. */
       .brand__mark {
         width: 1.5rem;
         height: 0.7rem;
-        background:
-          linear-gradient(to right, var(--lamp) 0 62%, transparent 62% 70%, var(--pool) 70% 100%);
+        background: linear-gradient(
+          to right,
+          var(--lamp) 0 62%,
+          transparent 62% 70%,
+          #6fb3ab 70% 100%
+        );
         border-radius: 1px;
+        flex: 0 0 auto;
+        display: block;
       }
 
       .brand__name {
         font-family: var(--display);
         font-weight: 800;
         letter-spacing: -0.02em;
-        font-size: 1.05rem;
+        font-size: 1.02rem;
+        color: var(--on-night);
       }
 
       .brand__thin {
         font-weight: 400;
-        color: var(--ink-soft);
+        color: var(--on-night-soft);
       }
 
       .nav {
         display: flex;
         align-items: center;
         gap: var(--s5);
-        flex-wrap: wrap;
+        margin-right: auto;
       }
 
-      .nav a:not(.btn) {
-        color: var(--ink-soft);
-        text-decoration: none;
-        font-size: 0.92rem;
-        padding: 0.2rem 0;
+      .nav a {
+        font-size: 0.9rem;
+        padding: 0.3rem 0;
         border-bottom: 2px solid transparent;
-      }
-
-      .nav a:not(.btn):hover {
-        color: var(--ink);
+        white-space: nowrap;
       }
 
       .nav a.is-active {
-        color: var(--ink);
+        color: var(--on-night);
         border-bottom-color: var(--lamp);
       }
 
-      .linklike {
-        background: none;
-        border: 0;
-        padding: 0;
-        color: var(--ink-soft);
-        font-size: 0.92rem;
-        cursor: pointer;
+      .actions {
+        display: flex;
+        align-items: center;
+        gap: var(--s3);
+        flex: 0 0 auto;
       }
 
-      .linklike:hover {
-        color: var(--ink);
+      .actions__quiet {
+        font-size: 0.9rem;
+        color: var(--on-night-soft);
+        text-decoration: none;
+        white-space: nowrap;
       }
+
+      .actions__quiet:hover {
+        color: var(--on-night);
+      }
+
+      .burger {
+        display: none;
+        width: 2.4rem;
+        height: 2.4rem;
+        border-radius: var(--radius-pill);
+        border: 1px solid var(--night-line);
+        background: transparent;
+        cursor: pointer;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+      }
+
+      .burger__bar {
+        display: block;
+        width: 1rem;
+        height: 1.5px;
+        background: var(--on-night);
+      }
+
+      /* --- Footer ---------------------------------------------------------- */
 
       .footer {
-        border-top: 1px solid var(--line);
+        position: relative;
         margin-top: var(--s8);
-        padding: var(--s5) 0;
+        padding: var(--s7) 0 0;
+        overflow: hidden;
       }
 
       .footer__inner {
         display: flex;
-        justify-content: space-between;
-        gap: var(--s4);
         flex-wrap: wrap;
-        font-size: 0.82rem;
-        letter-spacing: 0.06em;
-        color: var(--ink-faint);
+        gap: var(--s7);
+        justify-content: space-between;
+      }
+
+      .footer__lead {
+        flex: 1 1 20rem;
+        max-width: 28rem;
+      }
+
+      .footer__blurb {
+        margin: var(--s3) 0 0;
+        color: var(--on-night-soft);
+        font-size: 0.92rem;
+      }
+
+      .footer__cols {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--s7);
+      }
+
+      .footer__cols div {
+        display: flex;
+        flex-direction: column;
+        gap: var(--s2);
+      }
+
+      .footer__cols h4 {
+        font-family: var(--mono);
+        font-size: 0.7rem;
+        font-weight: 500;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--on-night-soft);
+        margin: 0 0 var(--s1);
+      }
+
+      .footer__cols a {
+        font-size: 0.92rem;
+      }
+
+      .footer__note {
+        margin: var(--s7) auto var(--s6);
+        padding-top: var(--s4);
+        border-top: 1px solid var(--night-line);
+        font-size: 0.8rem;
+        color: var(--on-night-soft);
+      }
+
+      /* A watermark, not a heading: it is cropped by the viewport on purpose and
+         should never compete with the links above it. */
+      .footer__wordmark {
+        display: block;
+        font-family: var(--display);
+        font-weight: 800;
+        font-size: clamp(3.5rem, 13vw, 11rem);
+        line-height: 0.82;
+        letter-spacing: -0.045em;
+        color: rgb(255 255 255 / 6%);
+        text-align: center;
+        white-space: nowrap;
+        user-select: none;
+        margin-bottom: -0.16em;
+      }
+
+      @media (max-width: 860px) {
+        .masthead__pill {
+          flex-wrap: wrap;
+          gap: var(--s3);
+          border-radius: var(--radius-xl);
+          padding: 0.6rem 0.7rem 0.6rem 1rem;
+        }
+
+        .nav {
+          order: 3;
+          width: 100%;
+          display: none;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: var(--s3);
+          padding: var(--s3) 0 var(--s2);
+          margin: 0;
+          border-top: 1px solid var(--night-line);
+        }
+
+        .nav.is-open {
+          display: flex;
+        }
+
+        .actions {
+          margin-left: auto;
+        }
+
+        .actions__quiet {
+          display: none;
+        }
+
+        .burger {
+          display: flex;
+        }
       }
     `,
   ],
 })
 export class AppComponent {
   protected readonly auth = inject(AuthService);
+  protected readonly menuOpen = signal(false);
+
+  protected toggle(): void {
+    this.menuOpen.update((open) => !open);
+  }
+
+  protected close(): void {
+    this.menuOpen.set(false);
+  }
 }

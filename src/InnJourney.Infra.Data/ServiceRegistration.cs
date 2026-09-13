@@ -21,8 +21,19 @@ public static class ServiceRegistration
                 "Connection string 'PostgreSQL' is not configured. Set ConnectionStrings__PostgreSQL " +
                 "as an environment variable or via dotnet user-secrets.");
 
+        // PostgreSQL is the deployment target. A "Data Source=" string selects
+        // SQLite instead, which is what makes the application runnable — seeded
+        // and end to end — on a machine with no database server on it.
+        var isSqlite = connectionString.TrimStart()
+            .StartsWith("Data Source=", StringComparison.OrdinalIgnoreCase);
+
         services.AddDbContext<InnJourneyDbContext>(options =>
-            options.UseNpgsql(connectionString, npgsql => npgsql.EnableRetryOnFailure()));
+        {
+            if (isSqlite)
+                options.UseSqlite(connectionString);
+            else
+                options.UseNpgsql(connectionString, npgsql => npgsql.EnableRetryOnFailure());
+        });
 
         // AddIdentityCore, not AddIdentity: the latter registers cookie
         // authentication and sets DefaultAuthenticateScheme to
