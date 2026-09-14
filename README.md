@@ -10,11 +10,11 @@ A stay runs from the evening you arrive to the morning you leave, which means th
 
 Everything you see in a search is bookable for the nights you asked for. There is no second check at the end that quietly takes the room away.
 
-Those nights are drawn as a band that runs through the whole site — a strip beneath a search result, a fuller stretch on a property's page, a wall of rooms against dates on an owner's dashboard. It is the same picture at every size, so once you have read it once you can read it anywhere.
+Those nights are drawn as a band that runs through the whole site a strip beneath a search result, a fuller stretch on a property's page, a wall of rooms against dates on an owner's dashboard. It is the same picture at every size, so once you have read it once you can read it anywhere.
 
 ## For travellers
 
-Search everywhere at once or narrow to a city, then filter by price, guest rating, star classification, and the facilities that decide it — parking, breakfast, a pool, somewhere that takes the dog.
+Search everywhere at once or narrow to a city, then filter by price, guest rating, star classification, and the facilities that decide it parking, breakfast, a pool, somewhere that takes the dog.
 
 Open a property to see its rooms priced for your dates. Rates are per night and per guest, with children charged at the room's own rate, so the figure you are shown is the figure you pay. Choose a room, pay, and the booking is confirmed with a reference you can quote.
 
@@ -24,7 +24,7 @@ Your account keeps upcoming and past stays in one place. Plans change, so a book
 
 An owner's dashboard opens on the occupancy board: every room against every night, so a quiet fortnight or a fully booked weekend is obvious at a glance.
 
-Alongside it sits the booking queue — arrivals to confirm, guests to check in, guests to check out — plus the rooms themselves, their capacity and their pricing, and what the property has earned over a chosen stretch of dates.
+Alongside it sits the booking queue arrivals to confirm, guests to check in, guests to check out — plus the rooms themselves, their capacity and their pricing, and what the property has earned over a chosen stretch of dates.
 
 An owner sees their own properties and nothing else. Two owners on the same platform never see each other's guests, bookings or takings.
 
@@ -40,7 +40,7 @@ A property's rating is the average of those reviews and nothing else moves it. T
 
 ## About this project
 
-Inn Journey is a demonstration build, seeded with a handful of properties across a few countries so the whole flow can be walked end to end — search, book, pay, check out, review.
+Inn Journey is a demonstration build, seeded with a handful of properties across a few countries so the whole flow can be walked end to end search, book, pay, check out, review.
 
 Payments are simulated. No card is ever charged or stored, and the project runs without a merchant account of any kind.
 
