@@ -1,59 +1,67 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
 import { AuthService } from './core/auth.service';
+import { IconComponent } from './shared/icon.component';
 import { ToastsComponent } from './shared/toasts.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, ToastsComponent],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, ToastsComponent, IconComponent],
   template: `
     <a class="skip" href="#main">Skip to content</a>
 
     <header class="masthead">
-      <div class="masthead__pill on-night">
-        <a routerLink="/" class="brand" aria-label="Inn Journey, home">
-          <span class="brand__mark" aria-hidden="true"></span>
-          <span class="brand__name">Inn<span class="brand__thin">Journey</span></span>
+      <div class="page--wide masthead__bar">
+        <a routerLink="/" class="brand" aria-label="Inn Journey, home" (click)="close()">
+          <span class="brand__mark" aria-hidden="true"><i></i><i></i></span>
+          <span class="brand__name">Inn Journey</span>
         </a>
 
         <nav id="main-nav" class="nav" [class.is-open]="menuOpen()" aria-label="Main">
-          <a routerLink="/search" routerLinkActive="is-active" (click)="close()">Find a room</a>
+          <a routerLink="/" routerLinkActive="is-active" [routerLinkActiveOptions]="{ exact: true }" (click)="close()">Home</a>
+          <a routerLink="/search" routerLinkActive="is-active" (click)="close()">Find a stay</a>
+
+          @if (auth.isSignedIn()) {
+            <a routerLink="/account" routerLinkActive="is-active" (click)="close()">My stays</a>
+          }
 
           @if (auth.isOwner()) {
             <a routerLink="/manage" routerLinkActive="is-active" (click)="close()">My properties</a>
+          } @else if (!auth.isSignedIn()) {
+            <a routerLink="/register" (click)="close()">List a property</a>
           }
 
           @if (auth.isAdmin()) {
             <a routerLink="/admin" routerLinkActive="is-active" (click)="close()">Admin</a>
           }
-
-          @if (auth.isSignedIn()) {
-            <a routerLink="/account" routerLinkActive="is-active" (click)="close()">My stays</a>
-          }
         </nav>
 
         <div class="actions">
           @if (auth.isSignedIn()) {
-            <button type="button" class="btn btn--sm btn--pill btn--night" (click)="auth.logout()">
-              Sign out
+            <button type="button" class="icon-btn" (click)="auth.logout()" title="Sign out">
+              <app-icon name="logout" />
+              <span class="visually-hidden">Sign out</span>
             </button>
+            <a routerLink="/account" class="avatar" [title]="auth.user()?.fullName ?? ''">
+              <span aria-hidden="true">{{ initials() }}</span>
+              <span class="visually-hidden">My stays</span>
+            </a>
           } @else {
             <a routerLink="/sign-in" class="actions__quiet">Sign in</a>
-            <a routerLink="/register" class="btn btn--sm btn--pill btn--night">Create account</a>
+            <a routerLink="/register" class="btn btn--sm">Create account</a>
           }
 
           <button
             type="button"
-            class="burger"
+            class="icon-btn burger"
             [attr.aria-expanded]="menuOpen()"
             aria-controls="main-nav"
             (click)="toggle()"
           >
+            <app-icon [name]="menuOpen() ? 'close' : 'menu'" [size]="20" />
             <span class="visually-hidden">Menu</span>
-            <span class="burger__bar" aria-hidden="true"></span>
-            <span class="burger__bar" aria-hidden="true"></span>
           </button>
         </div>
       </div>
@@ -66,17 +74,20 @@ import { ToastsComponent } from './shared/toasts.component';
     <footer class="footer on-night">
       <div class="page--wide footer__inner">
         <div class="footer__lead">
-          <span class="brand__mark" aria-hidden="true"></span>
+          <span class="brand brand--night">
+            <span class="brand__mark" aria-hidden="true"><i></i><i></i></span>
+            <span class="brand__name">Inn Journey</span>
+          </span>
           <p class="footer__blurb">
             Rooms priced and held by the night, with availability worked out across the
-            whole span rather than a single date.
+            whole stay rather than a single date.
           </p>
         </div>
 
         <nav class="footer__cols" aria-label="Footer">
           <div>
             <h4>Book</h4>
-            <a routerLink="/search">Find a room</a>
+            <a routerLink="/search">Find a stay</a>
             <a routerLink="/account">My stays</a>
           </div>
           <div>
@@ -87,16 +98,17 @@ import { ToastsComponent } from './shared/toasts.component';
           <div>
             <h4>Hosting</h4>
             <a routerLink="/manage">My properties</a>
+            <a routerLink="/register">List a property</a>
           </div>
         </nav>
       </div>
 
-      <p class="footer__note page--wide">
-        A demonstration booking platform. Payments are simulated and no card is ever
-        charged or stored.
-      </p>
-
-      <span class="footer__wordmark" aria-hidden="true">Inn Journey</span>
+      <div class="page--wide">
+        <div class="footer__base">
+          <span>&copy; {{ year }} Inn Journey</span>
+          <span>A demonstration build. Payments are simulated and no card is ever charged.</span>
+        </div>
+      </div>
     </footer>
 
     <app-toasts />
@@ -111,7 +123,6 @@ import { ToastsComponent } from './shared/toasts.component';
 
       main {
         flex: 1 0 auto;
-        padding-top: var(--nav-h);
       }
 
       .skip {
@@ -129,87 +140,94 @@ import { ToastsComponent } from './shared/toasts.component';
         border-radius: var(--radius);
       }
 
-      /* The nav floats: out of flow, so a hero can run full-bleed behind it. */
       .masthead {
-        position: fixed;
+        position: sticky;
         top: 0;
-        left: 0;
-        right: 0;
         z-index: 60;
-        padding: var(--s4) var(--s5) 0;
-        pointer-events: none;
+        background: rgb(255 255 255 / 92%);
+        backdrop-filter: saturate(160%) blur(12px);
+        -webkit-backdrop-filter: saturate(160%) blur(12px);
+        border-bottom: 1px solid var(--line);
       }
 
-      .masthead__pill {
-        pointer-events: auto;
-        max-width: var(--page-wide);
-        margin: 0 auto;
+      .masthead__bar {
+        min-height: var(--nav-h);
         display: flex;
         align-items: center;
-        gap: var(--s5);
-        padding: 0.55rem 0.6rem 0.55rem 1.15rem;
-        border-radius: var(--radius-pill);
-        background: rgb(11 22 20 / 82%);
-        backdrop-filter: blur(14px) saturate(140%);
-        -webkit-backdrop-filter: blur(14px) saturate(140%);
-        border: 1px solid var(--night-line);
-        box-shadow: 0 10px 30px -14px rgb(11 22 20 / 55%);
+        gap: var(--s6);
       }
 
       .brand {
         display: inline-flex;
         align-items: center;
-        gap: var(--s2);
+        gap: 0.55rem;
         text-decoration: none;
-        color: var(--on-night);
+        color: var(--ink);
         flex: 0 0 auto;
       }
 
-      /* Two bars: a stay, and the turnover beside it. */
+      /* Two bars on violet: a stay, and the next one starting the morning it ends. */
       .brand__mark {
-        width: 1.5rem;
-        height: 0.7rem;
-        background: linear-gradient(
-          to right,
-          var(--lamp) 0 62%,
-          transparent 62% 70%,
-          #6fb3ab 70% 100%
-        );
-        border-radius: 1px;
-        flex: 0 0 auto;
+        width: 1.7rem;
+        height: 1.7rem;
+        border-radius: 7px;
+        background: var(--pool);
+        display: inline-flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 3px;
+        padding: 0 5px;
+      }
+
+      .brand__mark i {
         display: block;
+        height: 4px;
+        border-radius: 2px;
+        background: #fff;
+      }
+
+      .brand__mark i:first-child {
+        width: 70%;
+      }
+
+      .brand__mark i:last-child {
+        width: 55%;
+        margin-left: auto;
+        opacity: 0.7;
       }
 
       .brand__name {
-        font-family: var(--display);
-        font-weight: 800;
-        letter-spacing: -0.02em;
-        font-size: 1.02rem;
-        color: var(--on-night);
+        font-weight: 700;
+        font-size: 1.12rem;
+        letter-spacing: -0.03em;
       }
 
-      .brand__thin {
-        font-weight: 400;
-        color: var(--on-night-soft);
+      .brand--night {
+        color: var(--on-night);
       }
 
       .nav {
         display: flex;
         align-items: center;
-        gap: var(--s5);
+        gap: var(--s6);
         margin-right: auto;
       }
 
       .nav a {
-        font-size: 0.9rem;
-        padding: 0.3rem 0;
-        border-bottom: 2px solid transparent;
+        font-size: 0.92rem;
+        font-weight: 500;
+        color: var(--ink-soft);
+        text-decoration: none;
         white-space: nowrap;
+        padding: 0.4rem 0;
+      }
+
+      .nav a:hover {
+        color: var(--ink);
       }
 
       .nav a.is-active {
-        color: var(--on-night);
-        border-bottom-color: var(--lamp);
+        color: var(--pool);
       }
 
       .actions {
@@ -220,44 +238,54 @@ import { ToastsComponent } from './shared/toasts.component';
       }
 
       .actions__quiet {
-        font-size: 0.9rem;
-        color: var(--on-night-soft);
+        font-size: 0.92rem;
+        color: var(--ink);
         text-decoration: none;
-        white-space: nowrap;
+        padding: 0.4rem 0.6rem;
       }
 
-      .actions__quiet:hover {
-        color: var(--on-night);
+      .icon-btn {
+        width: 2.5rem;
+        height: 2.5rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--radius-pill);
+        border: 1px solid var(--line);
+        background: var(--surface);
+        color: var(--ink-soft);
+        cursor: pointer;
+      }
+
+      .icon-btn:hover {
+        color: var(--ink);
+        border-color: var(--line-strong);
+      }
+
+      .avatar {
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--pool-soft);
+        color: var(--pool-deep);
+        font-size: 0.85rem;
+        font-weight: 700;
+        text-decoration: none;
+        box-shadow: inset 0 0 0 1px var(--pool-line);
       }
 
       .burger {
         display: none;
-        width: 2.4rem;
-        height: 2.4rem;
-        border-radius: var(--radius-pill);
-        border: 1px solid var(--night-line);
-        background: transparent;
-        cursor: pointer;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 4px;
-      }
-
-      .burger__bar {
-        display: block;
-        width: 1rem;
-        height: 1.5px;
-        background: var(--on-night);
       }
 
       /* --- Footer ---------------------------------------------------------- */
 
       .footer {
-        position: relative;
         margin-top: var(--s8);
         padding: var(--s7) 0 0;
-        overflow: hidden;
       }
 
       .footer__inner {
@@ -268,12 +296,12 @@ import { ToastsComponent } from './shared/toasts.component';
       }
 
       .footer__lead {
-        flex: 1 1 20rem;
-        max-width: 28rem;
+        flex: 1 1 18rem;
+        max-width: 24rem;
       }
 
       .footer__blurb {
-        margin: var(--s3) 0 0;
+        margin: var(--s4) 0 0;
         color: var(--on-night-soft);
         font-size: 0.92rem;
       }
@@ -281,59 +309,42 @@ import { ToastsComponent } from './shared/toasts.component';
       .footer__cols {
         display: flex;
         flex-wrap: wrap;
-        gap: var(--s7);
+        gap: var(--s5) var(--s8);
       }
 
       .footer__cols div {
         display: flex;
         flex-direction: column;
-        gap: var(--s2);
+        gap: var(--s3);
       }
 
       .footer__cols h4 {
-        font-family: var(--mono);
-        font-size: 0.7rem;
-        font-weight: 500;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-        color: var(--on-night-soft);
+        font-size: 0.95rem;
+        font-weight: 600;
         margin: 0 0 var(--s1);
       }
 
       .footer__cols a {
-        font-size: 0.92rem;
+        font-size: 0.9rem;
       }
 
-      .footer__note {
-        margin: var(--s7) auto var(--s6);
-        padding-top: var(--s4);
+      .footer__base {
+        display: flex;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: var(--s3);
+        margin-top: var(--s7);
+        padding-top: var(--s5);
+        padding-bottom: var(--s5);
         border-top: 1px solid var(--night-line);
-        font-size: 0.8rem;
+        font-size: 0.82rem;
         color: var(--on-night-soft);
       }
 
-      /* A watermark, not a heading: it is cropped by the viewport on purpose and
-         should never compete with the links above it. */
-      .footer__wordmark {
-        display: block;
-        font-family: var(--display);
-        font-weight: 800;
-        font-size: clamp(3.5rem, 13vw, 11rem);
-        line-height: 0.82;
-        letter-spacing: -0.045em;
-        color: rgb(255 255 255 / 6%);
-        text-align: center;
-        white-space: nowrap;
-        user-select: none;
-        margin-bottom: -0.16em;
-      }
-
-      @media (max-width: 860px) {
-        .masthead__pill {
+      @media (max-width: 900px) {
+        .masthead__bar {
           flex-wrap: wrap;
           gap: var(--s3);
-          border-radius: var(--radius-xl);
-          padding: 0.6rem 0.7rem 0.6rem 1rem;
         }
 
         .nav {
@@ -341,11 +352,15 @@ import { ToastsComponent } from './shared/toasts.component';
           width: 100%;
           display: none;
           flex-direction: column;
-          align-items: flex-start;
-          gap: var(--s3);
-          padding: var(--s3) 0 var(--s2);
+          align-items: stretch;
+          gap: 0;
+          padding: 0 0 var(--s3);
           margin: 0;
-          border-top: 1px solid var(--night-line);
+        }
+
+        .nav a {
+          padding: var(--s3) 0;
+          border-top: 1px solid var(--line);
         }
 
         .nav.is-open {
@@ -361,7 +376,7 @@ import { ToastsComponent } from './shared/toasts.component';
         }
 
         .burger {
-          display: flex;
+          display: inline-flex;
         }
       }
     `,
@@ -370,6 +385,16 @@ import { ToastsComponent } from './shared/toasts.component';
 export class AppComponent {
   protected readonly auth = inject(AuthService);
   protected readonly menuOpen = signal(false);
+  protected readonly year = new Date().getFullYear();
+
+  protected readonly initials = computed(() =>
+    (this.auth.user()?.fullName ?? '')
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((word) => word[0]!.toUpperCase())
+      .join('')
+  );
 
   protected toggle(): void {
     this.menuOpen.update((open) => !open);

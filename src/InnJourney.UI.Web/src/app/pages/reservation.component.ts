@@ -6,13 +6,14 @@ import { ApiService } from '../core/api.service';
 import { formatDate, formatDateTime, formatMoney } from '../core/dates';
 import { Reservation } from '../core/models';
 import { ToastService } from '../core/toast.service';
+import { IconComponent } from '../shared/icon.component';
 import { RibbonComponent } from '../shared/ribbon.component';
 import { StatusComponent } from '../shared/status.component';
 
 @Component({
   selector: 'app-reservation',
   standalone: true,
-  imports: [FormsModule, RouterLink, RibbonComponent, StatusComponent],
+  imports: [FormsModule, RouterLink, IconComponent, RibbonComponent, StatusComponent],
   template: `
     <div class="page wrap">
       @if (loading()) {
@@ -20,19 +21,26 @@ import { StatusComponent } from '../shared/status.component';
       } @else {
       @if (reservation(); as r) {
         @if (justConfirmed()) {
-          <p class="banner">Your booking is confirmed. A confirmation has been emailed to you.</p>
+          <p class="notice">
+            <app-icon name="check" [size]="18" [stroke]="2.2" />
+            Your booking is confirmed. A confirmation has been emailed to you.
+          </p>
         }
 
         <header class="head">
           <div>
             <p class="eyebrow">Booking reference</p>
-            <h1 class="ref num">{{ r.reference }}</h1>
+            <h1 class="ref code">{{ r.reference }}</h1>
           </div>
           <app-status [value]="r.status" />
         </header>
 
         <div class="grid">
           <section class="card detail">
+            @if (hotelPhoto(); as photo) {
+              <img class="detail__photo" [src]="photo" alt="" />
+            }
+
             <h2>{{ r.hotelName }}</h2>
             <p class="muted">Room <span class="num">{{ r.roomNumber }}</span></p>
 
@@ -91,7 +99,7 @@ import { StatusComponent } from '../shared/status.component';
                   @if (payment.cardLast4) {
                     <div>
                       <dt>Card</dt>
-                      <dd class="num">•••• {{ payment.cardLast4 }}</dd>
+                      <dd class="code">•••• {{ payment.cardLast4 }}</dd>
                     </div>
                   }
                   <div>
@@ -151,10 +159,11 @@ import { StatusComponent } from '../shared/status.component';
         padding: var(--s6) var(--s5) var(--s8);
       }
 
-      .banner {
-        padding: var(--s3) var(--s4);
-        background: var(--pool-soft);
-        border-left: 3px solid var(--pool);
+      .notice {
+        align-items: center;
+        background: var(--save-soft);
+        color: var(--save);
+        font-weight: 500;
         margin-bottom: var(--s5);
       }
 
@@ -167,15 +176,20 @@ import { StatusComponent } from '../shared/status.component';
         margin-bottom: var(--s5);
       }
 
+      .head .eyebrow {
+        color: var(--ink-faint);
+        font-weight: 500;
+      }
+
       .ref {
-        font-size: 2rem;
-        letter-spacing: 0.04em;
+        font-size: clamp(1.5rem, 1.2rem + 1vw, 2rem);
+        font-weight: 500;
         margin: 0;
       }
 
       .grid {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) 20rem;
+        grid-template-columns: minmax(0, 1fr) 21rem;
         gap: var(--s5);
         align-items: start;
       }
@@ -192,20 +206,34 @@ import { StatusComponent } from '../shared/status.component';
         padding: var(--s5);
       }
 
+      .detail__photo {
+        width: 100%;
+        aspect-ratio: 21 / 8;
+        object-fit: cover;
+        border-radius: var(--radius);
+        margin-bottom: var(--s5);
+      }
+
+      .detail h2 {
+        margin-bottom: var(--s1);
+      }
+
       .detail__ribbon {
+        display: block;
         margin: var(--s4) 0;
       }
 
       .lines {
-        margin: 0 0 var(--s4);
-        font-size: 0.9rem;
+        margin: 0 0 var(--s5);
+        font-size: 0.92rem;
       }
 
       .lines > div {
         display: flex;
         justify-content: space-between;
         gap: var(--s3);
-        padding: var(--s1) 0;
+        padding: 0.4rem 0;
+        border-bottom: 1px solid var(--line);
       }
 
       .lines dt {
@@ -214,14 +242,22 @@ import { StatusComponent } from '../shared/status.component';
 
       .lines dd {
         margin: 0;
+        font-variant-numeric: tabular-nums;
       }
 
       .lines__total {
-        border-top: 1px solid var(--line);
-        margin-top: var(--s2);
-        padding-top: var(--s2) !important;
+        border-bottom: 0 !important;
+        padding-top: var(--s3) !important;
         font-weight: 600;
-        font-size: 1.05rem;
+        font-size: 1.08rem;
+      }
+
+      .lines__total dt {
+        color: var(--ink);
+      }
+
+      .lines--tight {
+        margin-top: var(--s4);
       }
 
       .side {
@@ -230,8 +266,9 @@ import { StatusComponent } from '../shared/status.component';
       }
 
       .pay__amount {
-        font-size: 1.6rem;
-        font-weight: 600;
+        font-size: 1.7rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
         margin: 0 0 var(--s2);
       }
 
@@ -242,7 +279,7 @@ import { StatusComponent } from '../shared/status.component';
       }
 
       .small {
-        font-size: 0.85rem;
+        font-size: 0.87rem;
       }
     `,
   ],
@@ -256,6 +293,7 @@ export class ReservationComponent implements OnInit {
   protected readonly loading = signal(true);
   protected readonly busy = signal(false);
   protected readonly justConfirmed = signal(false);
+  protected readonly hotelPhoto = signal<string | null>(null);
 
   protected rating = 5;
   protected comment = '';
@@ -276,6 +314,13 @@ export class ReservationComponent implements OnInit {
         this.reservation.set(r);
         this.justConfirmed.set(r.status === 'Confirmed' && r.payment?.status === 'Succeeded');
         this.loading.set(false);
+
+        if (this.hotelPhoto() === null) {
+          this.api.getHotel(r.hotelId).subscribe({
+            next: (h) => this.hotelPhoto.set((h.images.find((i) => i.isCover) ?? h.images[0])?.url ?? null),
+            error: () => undefined,
+          });
+        }
       },
       error: (err) => {
         this.loading.set(false);

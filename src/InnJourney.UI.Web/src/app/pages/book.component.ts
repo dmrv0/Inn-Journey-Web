@@ -6,6 +6,7 @@ import { ApiService } from '../core/api.service';
 import { formatDate, formatMoney, nightsBetween } from '../core/dates';
 import { Reservation, Room } from '../core/models';
 import { ToastService, describeError, fieldErrors } from '../core/toast.service';
+import { IconComponent } from '../shared/icon.component';
 import { RibbonComponent } from '../shared/ribbon.component';
 
 type Step = 'review' | 'pay';
@@ -13,12 +14,27 @@ type Step = 'review' | 'pay';
 @Component({
   selector: 'app-book',
   standalone: true,
-  imports: [FormsModule, RouterLink, RibbonComponent],
+  imports: [FormsModule, RouterLink, IconComponent, RibbonComponent],
   template: `
     <div class="page wrap">
+      <a class="back" [routerLink]="['/hotels', room()?.hotelId]">
+        <app-icon name="chevron-left" [size]="16" />
+        Back to the property
+      </a>
+
       <ol class="steps" aria-label="Progress">
-        <li [class.on]="true"><span class="num">01</span> Your stay</li>
-        <li [class.on]="step() === 'pay'"><span class="num">02</span> Payment</li>
+        <li class="on">
+          <span class="steps__n">
+            @if (step() === 'pay') {
+              <app-icon name="check" [size]="14" [stroke]="2.4" />
+            } @else {
+              1
+            }
+          </span>
+          Your stay
+        </li>
+        <li class="steps__rule" aria-hidden="true"></li>
+        <li [class.on]="step() === 'pay'"><span class="steps__n">2</span> Payment</li>
       </ol>
 
       @if (loading()) {
@@ -26,7 +42,7 @@ type Step = 'review' | 'pay';
       } @else {
       @if (room(); as r) {
         <div class="grid">
-          <section class="main">
+          <section class="main card">
             @if (step() === 'review') {
               <h1>Confirm your stay</h1>
 
@@ -35,14 +51,16 @@ type Step = 'review' | 'pay';
                 payment goes through.
               </p>
 
-              <div class="field">
-                <label for="adults">Adults</label>
-                <input id="adults" class="input input--num" type="number" min="1" [max]="r.capacity" [(ngModel)]="adults" />
-              </div>
+              <div class="pair">
+                <div class="field">
+                  <label for="adults">Adults</label>
+                  <input id="adults" class="input input--num" type="number" min="1" [max]="r.capacity" [(ngModel)]="adults" />
+                </div>
 
-              <div class="field">
-                <label for="children">Children</label>
-                <input id="children" class="input input--num" type="number" min="0" [max]="r.capacity" [(ngModel)]="children" />
+                <div class="field">
+                  <label for="children">Children</label>
+                  <input id="children" class="input input--num" type="number" min="0" [max]="r.capacity" [(ngModel)]="children" />
+                </div>
               </div>
 
               @if (guests() > r.capacity) {
@@ -54,7 +72,7 @@ type Step = 'review' | 'pay';
               }
 
               <button
-                class="btn"
+                class="btn btn--lg"
                 type="button"
                 [disabled]="busy() || guests() > r.capacity"
                 (click)="reserve()"
@@ -64,13 +82,19 @@ type Step = 'review' | 'pay';
             } @else {
               <h1>Payment</h1>
 
-              <p class="held">
-                Held under <strong class="num">{{ reservation()?.reference }}</strong>. Complete
-                payment to confirm.
+              <p class="notice notice--held">
+                <app-icon name="lock" [size]="18" />
+                <span>
+                  Held under <strong class="code">{{ reservation()?.reference }}</strong>. Complete
+                  payment to confirm.
+                </span>
               </p>
 
               <div class="testcards">
-                <p class="eyebrow">Demonstration only</p>
+                <p class="testcards__title">
+                  <app-icon name="card" [size]="18" />
+                  Demonstration only
+                </p>
                 <p class="muted small">
                   No card is charged or stored. Use
                   <button type="button" class="linklike num" (click)="fill('4242424242424242')">
@@ -128,23 +152,28 @@ type Step = 'review' | 'pay';
                   <p class="error-text" role="alert">{{ error() }}</p>
                 }
 
-                <button class="btn" type="submit" [disabled]="busy() || payForm.invalid">
-                  {{ busy() ? 'Taking payment…' : 'Pay ' + money(total()) }}
-                </button>
+                <div class="buttons">
+                  <button class="btn btn--lg" type="submit" [disabled]="busy() || payForm.invalid">
+                    <app-icon name="shield" [size]="18" />
+                    {{ busy() ? 'Taking payment…' : 'Pay ' + money(total()) }}
+                  </button>
 
-                <button class="btn btn--ghost" type="button" (click)="abandon()" [disabled]="busy()">
-                  Cancel this hold
-                </button>
+                  <button class="btn btn--ghost btn--lg" type="button" (click)="abandon()" [disabled]="busy()">
+                    Cancel this hold
+                  </button>
+                </div>
               </form>
             }
           </section>
 
           <aside class="summary card">
-            <p class="eyebrow">Your stay</p>
+            @if (hotelPhoto(); as photo) {
+              <img class="summary__photo" [src]="photo" alt="" />
+            }
 
             <h2 class="summary__hotel">{{ hotelName() }}</h2>
             <p class="muted small">
-              {{ r.roomType?.name || 'Room' }} &middot; no. <span class="num">{{ r.number }}</span>
+              {{ r.roomType?.name || 'Room' }}, room <span class="num">{{ r.number }}</span>
             </p>
 
             <app-ribbon
@@ -184,8 +213,6 @@ type Step = 'review' | 'pay';
                 <dd class="num">{{ money(total()) }}</dd>
               </div>
             </dl>
-
-            <a class="muted small" [routerLink]="['/hotels', r.hotelId]">Back to the property</a>
           </aside>
         </div>
       }
@@ -195,34 +222,70 @@ type Step = 'review' | 'pay';
   styles: [
     `
       .wrap {
-        padding: var(--s6) var(--s5) var(--s8);
+        padding: var(--s5) var(--s5) var(--s8);
       }
 
+      .back {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.2rem;
+        font-size: 0.88rem;
+        color: var(--ink-soft);
+        text-decoration: none;
+        margin-bottom: var(--s4);
+      }
+
+      /* Numbered because booking genuinely is a sequence of two steps. */
       .steps {
         list-style: none;
         display: flex;
-        gap: var(--s5);
+        align-items: center;
+        gap: var(--s3);
         padding: 0;
         margin: 0 0 var(--s5);
-        font-size: 0.8rem;
-        font-family: var(--mono);
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
+        font-size: 0.92rem;
+        font-weight: 500;
         color: var(--ink-faint);
+      }
+
+      .steps li {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--s2);
+      }
+
+      .steps__n {
+        width: 1.7rem;
+        height: 1.7rem;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--line-strong);
+        font-size: 0.8rem;
+        font-weight: 600;
       }
 
       .steps .on {
         color: var(--ink);
       }
 
-      .steps .on span {
-        color: var(--lamp);
+      .steps .on .steps__n {
+        background: var(--pool);
+        border-color: var(--pool);
+        color: #fff;
+      }
+
+      .steps__rule {
+        width: 3rem;
+        height: 1px;
+        background: var(--line-strong);
       }
 
       .grid {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) 20rem;
-        gap: var(--s6);
+        grid-template-columns: minmax(0, 1fr) 22rem;
+        gap: var(--s5);
         align-items: start;
       }
 
@@ -232,23 +295,53 @@ type Step = 'review' | 'pay';
         }
       }
 
+      .main {
+        padding: clamp(1.25rem, 3vw, 2rem);
+      }
+
+      .main h1 {
+        font-size: 1.6rem;
+      }
+
+      .pair {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: var(--s3);
+        max-width: 26rem;
+      }
+
       .summary {
-        padding: var(--s5);
+        padding: var(--s3) var(--s3) var(--s5);
         position: sticky;
-        top: 5rem;
+        top: calc(var(--nav-h) + var(--s4));
+      }
+
+      .summary > :not(img) {
+        margin-left: var(--s3);
+        margin-right: var(--s3);
+      }
+
+      .summary__photo {
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        object-fit: cover;
+        border-radius: var(--radius);
+        margin-bottom: var(--s4);
       }
 
       .summary__hotel {
-        font-size: 1.1rem;
+        font-size: 1.15rem;
         margin-bottom: var(--s1);
       }
 
       .summary__ribbon {
-        margin: var(--s4) 0;
+        display: block;
+        margin-top: var(--s4);
+        margin-bottom: var(--s4);
       }
 
       .lines {
-        margin: 0 0 var(--s4);
+        margin: 0;
         font-size: 0.9rem;
       }
 
@@ -256,7 +349,7 @@ type Step = 'review' | 'pay';
         display: flex;
         justify-content: space-between;
         gap: var(--s3);
-        padding: var(--s1) 0;
+        padding: 0.35rem 0;
       }
 
       .lines dt {
@@ -265,14 +358,19 @@ type Step = 'review' | 'pay';
 
       .lines dd {
         margin: 0;
+        font-variant-numeric: tabular-nums;
       }
 
       .lines__total {
         border-top: 1px solid var(--line);
         margin-top: var(--s2);
-        padding-top: var(--s2) !important;
+        padding-top: var(--s3) !important;
         font-weight: 600;
         font-size: 1.05rem;
+      }
+
+      .lines__total dt {
+        color: var(--ink);
       }
 
       .triple {
@@ -281,18 +379,23 @@ type Step = 'review' | 'pay';
         gap: var(--s3);
       }
 
-      .held {
-        padding: var(--s3);
-        background: var(--lamp-soft);
-        border-left: 3px solid var(--lamp);
-        font-size: 0.92rem;
+      .testcards {
+        margin-bottom: var(--s5);
+        padding: var(--s4);
+        border: 1px dashed var(--line-strong);
+        border-radius: var(--radius);
       }
 
-      .testcards {
-        margin-bottom: var(--s4);
-        padding: var(--s3);
-        border: 1px dashed var(--line);
-        border-radius: var(--radius);
+      .testcards__title {
+        display: flex;
+        align-items: center;
+        gap: var(--s2);
+        font-weight: 600;
+        margin-bottom: var(--s2);
+      }
+
+      .testcards p:last-child {
+        margin: 0;
       }
 
       .linklike {
@@ -302,15 +405,20 @@ type Step = 'review' | 'pay';
         color: var(--pool);
         cursor: pointer;
         text-decoration: underline;
+        text-underline-offset: 3px;
         font-size: inherit;
+        font-family: var(--mono);
       }
 
       .small {
-        font-size: 0.85rem;
+        font-size: 0.87rem;
       }
 
-      .btn + .btn {
-        margin-left: var(--s3);
+      .buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--s3);
+        margin-top: var(--s2);
       }
     `,
   ],
@@ -334,6 +442,7 @@ export class BookComponent implements OnInit {
 
   protected readonly room = signal<Room | null>(null);
   protected readonly hotelName = signal('');
+  protected readonly hotelPhoto = signal<string | null>(null);
   protected readonly reservation = signal<Reservation | null>(null);
   protected readonly step = signal<Step>('review');
   protected readonly loading = signal(true);
@@ -369,7 +478,10 @@ export class BookComponent implements OnInit {
         this.loading.set(false);
 
         this.api.getHotel(room.hotelId).subscribe({
-          next: (hotel) => this.hotelName.set(hotel.name),
+          next: (hotel) => {
+            this.hotelName.set(hotel.name);
+            this.hotelPhoto.set((hotel.images.find((i) => i.isCover) ?? hotel.images[0])?.url ?? null);
+          },
           error: () => undefined,
         });
       },

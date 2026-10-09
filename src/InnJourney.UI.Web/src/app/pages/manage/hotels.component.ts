@@ -3,24 +3,27 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 
 import { ApiService } from '../../core/api.service';
-import { formatMoney } from '../../core/dates';
+import { formatPrice } from '../../core/dates';
 import { Amenity, HotelSummary } from '../../core/models';
 import { ToastService, fieldErrors } from '../../core/toast.service';
+import { IconComponent } from '../../shared/icon.component';
+import { PlateComponent } from '../../shared/plate.component';
 import { StarsComponent } from '../../shared/stars.component';
 
 @Component({
   selector: 'app-manage-hotels',
   standalone: true,
-  imports: [FormsModule, RouterLink, StarsComponent],
+  imports: [FormsModule, RouterLink, IconComponent, PlateComponent, StarsComponent],
   template: `
     <div class="page wrap">
-      <header class="head">
+      <header class="page-head">
         <div>
-          <p class="eyebrow">Owner</p>
           <h1>My properties</h1>
+          <p class="muted">Rooms, rates, bookings and revenue for each place you run.</p>
         </div>
 
-        <button class="btn" type="button" (click)="showForm.set(!showForm())">
+        <button class="btn btn--pill" type="button" (click)="showForm.set(!showForm())">
+          <app-icon [name]="showForm() ? 'close' : 'plus'" [size]="16" [stroke]="2" />
           {{ showForm() ? 'Close' : 'Add a property' }}
         </button>
       </header>
@@ -106,33 +109,31 @@ import { StarsComponent } from '../../shared/stars.component';
           <p>Add one to start taking bookings.</p>
         </div>
       } @else {
-        <ul class="list">
+        <ul class="grid-cards list">
           @for (h of hotels(); track h.id) {
-            <li class="card item">
-              <div class="item__media">
-                @if (h.coverImageUrl) {
-                  <img [src]="h.coverImageUrl" [alt]="h.name" />
-                } @else {
-                  <span class="num">{{ h.name.charAt(0) }}</span>
-                }
+            <li class="stay">
+              <div class="stay__media">
+                <app-plate [seed]="h.id" [src]="h.coverImageUrl" [label]="h.name" />
               </div>
 
-              <div class="item__body">
-                <div class="item__head">
-                  <h2><a [routerLink]="['/manage', h.id]">{{ h.name }}</a></h2>
-                  <app-stars [value]="h.stars" />
-                </div>
-                <p class="muted small">{{ h.address.city }}, {{ h.address.country }}</p>
-                <p class="muted small">
+              <div class="stay__body">
+                <h2 class="stay__title"><a [routerLink]="['/manage', h.id]">{{ h.name }}</a></h2>
+                <p class="stay__where">{{ h.address.city }}, {{ h.address.country }}</p>
+
+                <div class="stay__foot">
+                  <ul class="facts">
+                    <li><app-stars [value]="h.stars" /></li>
+                    <li>
+                      <app-icon name="star" [size]="14" [filled]="true" [stroke]="1" class="rated" />
+                      {{ h.reviewCount }} review{{ h.reviewCount === 1 ? '' : 's' }}
+                    </li>
+                  </ul>
                   @if (h.fromPrice !== null) {
-                    from <span class="num">{{ money(h.fromPrice) }}</span> a night &middot;
+                    <p class="price">
+                      <span class="price__night">{{ money(h.fromPrice) }}<small>/night</small></span>
+                    </p>
                   }
-                  {{ h.reviewCount }} review{{ h.reviewCount === 1 ? '' : 's' }}
-                </p>
-              </div>
-
-              <div class="item__side">
-                <a class="btn btn--sm" [routerLink]="['/manage', h.id]">Open</a>
+                </div>
               </div>
             </li>
           }
@@ -143,16 +144,7 @@ import { StarsComponent } from '../../shared/stars.component';
   styles: [
     `
       .wrap {
-        padding: var(--s6) var(--s5) var(--s8);
-      }
-
-      .head {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-end;
-        gap: var(--s4);
-        flex-wrap: wrap;
-        margin-bottom: var(--s5);
+        padding-bottom: var(--s8);
       }
 
       .form {
@@ -201,58 +193,14 @@ import { StarsComponent } from '../../shared/stars.component';
         list-style: none;
         padding: 0;
         margin: 0;
-        display: grid;
-        gap: var(--s3);
       }
 
-      .item {
-        display: flex;
-        align-items: center;
-        gap: var(--s4);
-        padding: var(--s3);
-      }
-
-      .item__media {
-        flex: 0 0 5rem;
-        height: 4rem;
-        border-radius: var(--radius);
-        background: var(--surface-sunk);
-        display: grid;
-        place-items: center;
-        overflow: hidden;
-        font-size: 1.6rem;
-        color: var(--ink-faint);
-      }
-
-      .item__media img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-      }
-
-      .item__body {
-        flex: 1 1 auto;
-        min-width: 0;
-      }
-
-      .item__head {
-        display: flex;
-        align-items: center;
-        gap: var(--s3);
-      }
-
-      .item h2 {
+      .price {
         margin: 0;
-        font-size: 1.05rem;
       }
 
-      .item h2 a {
-        color: inherit;
-        text-decoration: none;
-      }
-
-      .item h2 a:hover {
-        text-decoration: underline;
+      .rated {
+        color: var(--star);
       }
 
       .small {
@@ -352,6 +300,6 @@ export class ManageHotelsComponent implements OnInit {
   }
 
   protected money(value: number): string {
-    return formatMoney(value);
+    return formatPrice(value);
   }
 }

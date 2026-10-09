@@ -46,6 +46,7 @@ const GROUNDS: readonly { from: string; to: string; glow: string }[] = [
             [selectedFrom]="selectedFrom()"
             [selectedTo]="selectedTo()"
             [showScale]="false"
+            [compact]="true"
             tone="dark"
           />
         </div>
@@ -60,7 +61,7 @@ const GROUNDS: readonly { from: string; to: string; glow: string }[] = [
 
       .plate {
         position: relative;
-        aspect-ratio: 16 / 10;
+        aspect-ratio: 16 / 10.5;
         overflow: hidden;
         display: flex;
         flex-direction: column;
@@ -94,13 +95,15 @@ const GROUNDS: readonly { from: string; to: string; glow: string }[] = [
         display: flex;
         flex-wrap: wrap;
         gap: var(--s2);
-        padding: var(--s3);
+        padding: 0.65rem;
       }
 
+      /* A slim strip along the foot of the photograph, where a gallery would
+         put its page dots. */
       .plate__ribbon {
         position: relative;
-        padding: var(--s3);
-        background: linear-gradient(to top, rgb(0 0 0 / 45%), transparent);
+        padding: var(--s5) var(--s3) var(--s3);
+        background: linear-gradient(to top, rgb(0 0 0 / 50%), transparent);
       }
     `,
   ],

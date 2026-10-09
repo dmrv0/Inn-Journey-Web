@@ -1,482 +1,564 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 
 import { ApiService } from '../core/api.service';
-import { addDays, formatMoney, nightsBetween, today } from '../core/dates';
+import { addDays, formatDate, today } from '../core/dates';
 import { HotelSummary } from '../core/models';
-import { PlateComponent } from '../shared/plate.component';
+import { CITY_PHOTOS, HERO_PHOTO, HOST_PHOTO, STORY_PHOTOS, unsplash } from '../core/photos';
+import { IconComponent } from '../shared/icon.component';
 import { RibbonComponent } from '../shared/ribbon.component';
+import { SearchBarComponent, StaySearch } from '../shared/search-bar.component';
+import { StayCardComponent } from '../shared/stay-card.component';
+
+interface CityTile {
+  name: string;
+  country: string;
+  photo: string | null;
+  count: number;
+}
 
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [FormsModule, RouterLink, RibbonComponent, PlateComponent],
+  imports: [RouterLink, IconComponent, RibbonComponent, SearchBarComponent, StayCardComponent],
   template: `
-    <section class="hero">
-      <div class="hero__texture" aria-hidden="true">
-        <app-ribbon
-          [from]="ribbonFrom"
-          [to]="ribbonTo"
-          [occupied]="demoOccupied"
-          [showScale]="false"
-          [compact]="true"
-          tone="dark"
-        />
+    <section class="page--wide hero-wrap">
+      <div class="hero" [style.background-image]="'url(' + heroPhoto + ')'">
+        <div class="hero__inner">
+          <h1 class="hero__title">Find a room for exactly the nights you need</h1>
+          <p class="hero__lede">
+            Every room is checked across your whole stay, so one that frees up the
+            morning you arrive shows as free.
+          </p>
+        </div>
+
+        <app-search-bar class="hero__search" [raised]="true" cta="Search" (searched)="search($event)" />
       </div>
+    </section>
 
-      <div class="page--wide hero__inner">
-        <p class="pill pill--night hero__badge">
-          <span class="hero__dot" aria-hidden="true"></span>
-          Availability priced by the night
-        </p>
+    @if (cities().length > 0) {
+      <section class="page--wide block">
+        <div class="section-head">
+          <h2>Popular locations</h2>
 
-        <h1 class="hero__title">
-          Tell us the nights.<br />
-          We&rsquo;ll show you what&rsquo;s <span class="lit">still lit</span>.
-        </h1>
-
-        <p class="hero__lede">
-          A stay is a span, not a date. Every room is checked across the whole span you
-          need it &mdash; so a room free on the day the last guest leaves shows as free.
-        </p>
-
-        <form class="hunt" (ngSubmit)="search()">
-          <div class="hunt__seg">
-            <label for="where">Where to?</label>
-            <input
-              id="where"
-              name="where"
-              [(ngModel)]="city"
-              placeholder="Search destinations"
-              autocomplete="off"
-            />
+          <div class="arrows">
+            <button type="button" class="arrow" (click)="scroll(cityRow, -1)">
+              <app-icon name="chevron-left" />
+              <span class="visually-hidden">Previous locations</span>
+            </button>
+            <button type="button" class="arrow" (click)="scroll(cityRow, 1)">
+              <app-icon name="chevron-right" />
+              <span class="visually-hidden">More locations</span>
+            </button>
           </div>
+        </div>
 
-          <div class="hunt__seg">
-            <label for="from">Check in</label>
-            <input
-              id="from"
-              class="num"
-              type="date"
-              name="from"
-              [min]="minDate"
-              [(ngModel)]="checkIn"
-              (ngModelChange)="onCheckInChange()"
-            />
-          </div>
-
-          <div class="hunt__seg">
-            <label for="to">Check out</label>
-            <input
-              id="to"
-              class="num"
-              type="date"
-              name="to"
-              [min]="minCheckOut()"
-              [(ngModel)]="checkOut"
-              (ngModelChange)="recount()"
-            />
-          </div>
-
-          <div class="hunt__seg hunt__seg--narrow">
-            <label for="guests">Guests</label>
-            <input
-              id="guests"
-              class="num"
-              type="number"
-              name="guests"
-              min="1"
-              max="20"
-              [(ngModel)]="guests"
-            />
-          </div>
-
-          <button class="hunt__go" type="submit">Search</button>
-        </form>
-
-        <p class="hero__count num" aria-live="polite">
-          @if (nights() > 0) {
-            {{ nights() }} night{{ nights() === 1 ? '' : 's' }} &middot; {{ guests }}
-            guest{{ guests === 1 ? '' : 's' }}
-          } @else {
-            Check-out must be after check-in
+        <div class="rail rail--cities" #cityRow>
+          @for (city of cities(); track city.name) {
+            <a class="city" [routerLink]="['/search']" [queryParams]="{ city: city.name }">
+              @if (city.photo) {
+                <img [src]="city.photo" alt="" loading="lazy" />
+              }
+              <span class="city__label">
+                <strong>{{ city.name }}, {{ city.country }}</strong>
+                <span>{{ city.count }} {{ city.count === 1 ? 'property' : 'properties' }}</span>
+              </span>
+            </a>
           }
-        </p>
+        </div>
+      </section>
+    }
+
+    <section class="story-band">
+      <div class="page--wide story">
+        <div class="story__media">
+          <img class="story__photo story__photo--main" [src]="storyPhotos[0]" alt="" loading="lazy" />
+          <img class="story__photo story__photo--inset" [src]="storyPhotos[1]" alt="" loading="lazy" />
+
+          <figure class="turnover card">
+            <figcaption>
+              <strong>Room 204</strong>
+              <span class="muted">{{ fmt(demo.from) }} to {{ fmt(demo.to) }}</span>
+            </figcaption>
+            <app-ribbon
+              [from]="demo.from"
+              [to]="demo.to"
+              [occupied]="demo.occupied"
+              [selectedFrom]="demo.selectedFrom"
+              [selectedTo]="demo.selectedTo"
+              [showScale]="false"
+            />
+            <p class="turnover__key">
+              <span><i class="key key--taken"></i>Booked</span>
+              <span><i class="key key--yours"></i>Your stay</span>
+            </p>
+          </figure>
+        </div>
+
+        <div class="story__text">
+          <p class="eyebrow">Nights, not dates</p>
+          <h2>The day one guest leaves is a day the next one can arrive</h2>
+          <p class="muted">
+            A stay runs from the evening you check in to the morning you check out.
+            Inn Journey books rooms on exactly that rule, so a room that looks taken is
+            often free for the span you wanted &mdash; and it is shown as free.
+          </p>
+
+          <ul class="ticks">
+            <li><app-icon name="check" [stroke]="2" /> Availability worked out for every night of the stay</li>
+            <li><app-icon name="check" [stroke]="2" /> Prices per night, with a child rate for every room</li>
+            <li><app-icon name="check" [stroke]="2" /> The room is held while you pay, then confirmed</li>
+          </ul>
+
+          <a routerLink="/search" class="btn btn--pill">
+            Browse stays
+            <app-icon name="chevron-right" [size]="16" [stroke]="2" />
+          </a>
+        </div>
       </div>
     </section>
 
     @if (featured().length > 0) {
-      <section class="page--wide band">
+      <section class="page--wide block">
         <div class="section-head">
-          <p class="eyebrow">Available now</p>
-          <h2>Places with nights free</h2>
-          <p>Each plate frames the month around your dates, with the nights you asked for
-            marked out.</p>
+          <h2>Popular stays for your next trip</h2>
+          <a routerLink="/search" class="see-all">
+            See all stays
+            <app-icon name="chevron-right" [size]="16" />
+          </a>
         </div>
 
-        <div class="grid-cards">
-          @for (hotel of featured(); track hotel.id) {
-            <article class="card card--stack">
-              <a [routerLink]="['/hotels', hotel.id]" class="plate-link">
-                <app-plate
-                  [seed]="hotel.id"
-                  [src]="hotel.coverImageUrl"
-                  [alt]="hotel.name"
-                  [label]="hotel.name"
-                  [from]="window().from"
-                  [to]="window().to"
-                  [selectedFrom]="window().selectedFrom"
-                  [selectedTo]="window().selectedTo"
-                >
-                  <span class="chip">{{ hotel.stars }}&#9733;</span>
-                  @if (hotel.reviewCount > 0) {
-                    <span class="chip">{{ hotel.averageRating.toFixed(1) }} rated</span>
-                  }
-                </app-plate>
-              </a>
+        <div class="stays-wrap">
+          <button type="button" class="arrow arrow--float arrow--left" (click)="scroll(stayRow, -1)">
+            <app-icon name="chevron-left" />
+            <span class="visually-hidden">Previous stays</span>
+          </button>
 
-              <div class="card__body">
-                <h3 class="card__title">
-                  <a [routerLink]="['/hotels', hotel.id]">{{ hotel.name }}</a>
-                </h3>
-                <p class="where">
-                  <span class="where__pin" aria-hidden="true"></span>
-                  {{ hotel.address.city }}, {{ hotel.address.country }}
-                </p>
-              </div>
-
-              @if (hotel.fromPrice !== null) {
-                <div class="price-row">
-                  <span class="price-row__amount">{{ money(hotel.fromPrice) }}</span>
-                  <span class="price-row__unit">per night</span>
-
-                  @if (nights() > 0) {
-                    <span class="price-row__span num">
-                      {{ money(hotel.fromPrice * nights()) }} for
-                      {{ nights() }} night{{ nights() === 1 ? '' : 's' }}
-                    </span>
-                  }
-                </div>
-              }
-            </article>
-          }
-        </div>
-      </section>
-
-      @if (cities().length > 1) {
-        <section class="page--wide band">
-          <div class="section-head">
-            <p class="eyebrow">By city</p>
-            <h2>Where the rooms are</h2>
-          </div>
-
-          <div class="cities">
-            @for (city of cities(); track city) {
-              <a class="city" [routerLink]="['/search']" [queryParams]="{ city: city }">
-                <app-plate [seed]="city" [label]="city" />
-                <span class="city__name">{{ city }}</span>
-              </a>
+          <div class="rail rail--stays" #stayRow>
+            @for (hotel of featured(); track hotel.id) {
+              <app-stay-card [hotel]="hotel" [nights]="3" />
             }
           </div>
-        </section>
-      }
+
+          <button type="button" class="arrow arrow--float arrow--right" (click)="scroll(stayRow, 1)">
+            <app-icon name="chevron-right" />
+            <span class="visually-hidden">More stays</span>
+          </button>
+        </div>
+      </section>
     }
 
-    <section class="page band">
-      <div class="section-head">
-        <p class="eyebrow">How it works</p>
-        <h2>Three steps, and the room is held</h2>
+    <section class="page--wide block">
+      <div class="host" [style.background-image]="'url(' + hostPhoto + ')'">
+        <div class="host__inner">
+          <p class="host__eyebrow">For property owners</p>
+          <h2>Let your rooms, and see every night of them on one board</h2>
+          <p>
+            Add rooms and rates, watch occupancy across the month, and check guests in and
+            out as they arrive.
+          </p>
+          <a routerLink="/register" class="btn btn--pill btn--lg host__cta">List a property</a>
+        </div>
       </div>
-
-      <ol class="steps">
-        <li>
-          <span class="steps__n num">01</span>
-          <h3>Pick your nights</h3>
-          <p>
-            Availability is worked out for the whole span at once, so what you see is
-            bookable.
-          </p>
-        </li>
-        <li>
-          <span class="steps__n num">02</span>
-          <h3>Choose a room</h3>
-          <p>
-            Prices are per night, per guest, with children charged at the room&rsquo;s child
-            rate.
-          </p>
-        </li>
-        <li>
-          <span class="steps__n num">03</span>
-          <h3>Pay to confirm</h3>
-          <p>
-            The room is held while you pay. Payments here are simulated &mdash; no card is
-            ever charged or stored.
-          </p>
-        </li>
-      </ol>
-
-      <p class="center">
-        <a routerLink="/search" class="btn btn--pill">Browse every property</a>
-      </p>
     </section>
   `,
   styles: [
     `
-      /* --- Hero -------------------------------------------------------------
-         Full bleed, and pulled up under the floating nav so the ground runs
-         behind it. The texture band is the product's own thesis used as the
-         image a travel site would fill with a photograph. */
+      /* --- Hero -------------------------------------------------------------- */
+
+      .hero-wrap {
+        padding-top: var(--s5);
+      }
 
       .hero {
         position: relative;
-        margin-top: calc(var(--nav-h) * -1);
-        padding: calc(var(--nav-h) + var(--s8)) 0 var(--s7);
+        border-radius: var(--radius-xl);
+        background-size: cover;
+        background-position: center 60%;
+        padding: clamp(4rem, 9vw, 7.5rem) clamp(1rem, 4vw, 3.5rem) clamp(2rem, 4vw, 3rem);
+        isolation: isolate;
         overflow: hidden;
-        background:
-          radial-gradient(80% 60% at 12% 4%, #2e6e7350 0%, transparent 60%),
-          radial-gradient(70% 70% at 92% 96%, #17414a80 0%, transparent 62%),
-          linear-gradient(155deg, #081a22 0%, #123b40 58%, #16302c 100%);
-        color: var(--on-night);
       }
 
-      /* An occupancy rule along the hero's bottom edge: the product's own
-         subject, running edge to edge, where a travel site would crop a photo. */
-      .hero__texture {
+      .hero::before {
+        content: '';
         position: absolute;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        opacity: 0.55;
-        pointer-events: none;
+        inset: 0;
+        z-index: -1;
+        background:
+          linear-gradient(180deg, rgb(10 14 30 / 55%) 0%, rgb(10 14 30 / 25%) 45%, rgb(10 14 30 / 55%) 100%);
       }
 
       .hero__inner {
-        position: relative;
-      }
-
-      .hero__badge {
-        margin: 0 0 var(--s5);
-      }
-
-      .hero__dot {
-        width: 0.4rem;
-        height: 0.4rem;
-        border-radius: 50%;
-        background: var(--lamp);
-        display: inline-block;
+        max-width: 46rem;
+        margin: 0 auto;
+        text-align: center;
+        color: #fff;
       }
 
       .hero__title {
-        color: var(--on-night);
-        font-size: clamp(2.4rem, 1.4rem + 4.2vw, 4.4rem);
+        color: #fff;
+        font-size: clamp(2.1rem, 1.3rem + 3.4vw, 3.6rem);
+        font-weight: 600;
         letter-spacing: -0.035em;
-        line-height: 1.04;
-        max-width: 16ch;
-        margin: 0 0 var(--s4);
-      }
-
-      .lit {
-        color: var(--lamp);
-        white-space: nowrap;
+        line-height: 1.08;
+        margin: 0 auto var(--s4);
+        max-width: 18ch;
+        text-wrap: balance;
       }
 
       .hero__lede {
-        max-width: 46ch;
-        font-size: 1.04rem;
-        color: var(--on-night-soft);
-        margin: 0 0 var(--s6);
+        font-size: clamp(1rem, 0.95rem + 0.3vw, 1.12rem);
+        color: rgb(255 255 255 / 88%);
+        max-width: 44ch;
+        margin: 0 auto;
       }
 
-      /* --- The search bar ---------------------------------------------------
-         One white bar, divided rather than boxed: the fields belong to a single
-         question, so they share a surface instead of each carrying a border. */
-
-      .hunt {
-        display: flex;
-        align-items: stretch;
-        gap: 0;
-        background: var(--surface);
-        border-radius: var(--radius-pill);
-        padding: 0.45rem 0.45rem 0.45rem 0.4rem;
-        box-shadow: 0 18px 40px -20px rgb(0 0 0 / 55%);
-        max-width: 58rem;
-        flex-wrap: wrap;
+      .hero__search {
+        max-width: 64rem;
+        margin: clamp(2.5rem, 6vw, 4.5rem) auto 0;
       }
 
-      .hunt__seg {
-        flex: 1 1 11rem;
-        min-width: 9rem;
-        padding: 0.35rem 1.1rem;
-        border-right: 1px solid var(--line);
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-      }
+      /* --- Blocks ------------------------------------------------------------- */
 
-      .hunt__seg--narrow {
-        flex: 0 1 7.5rem;
-        min-width: 6.5rem;
-      }
-
-      .hunt__seg label {
-        font-family: var(--mono);
-        font-size: 0.68rem;
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
-        color: var(--ink-faint);
-        margin-bottom: 0.1rem;
-      }
-
-      .hunt__seg input {
-        border: 0;
-        padding: 0;
-        background: transparent;
-        font-size: 0.95rem;
-        color: var(--ink);
-        width: 100%;
-        min-width: 0;
-      }
-
-      .hunt__seg input:focus {
-        outline: none;
-      }
-
-      .hunt__seg:focus-within {
-        background: var(--pool-soft);
-        border-radius: var(--radius);
-      }
-
-      .hunt__seg input::placeholder {
-        color: var(--ink-faint);
-      }
-
-      .hunt__go {
-        flex: 0 0 auto;
-        border: 0;
-        border-radius: var(--radius-pill);
-        background: var(--night);
-        color: var(--on-night);
-        font-weight: 600;
-        font-size: 0.95rem;
-        padding: 0.8rem 2rem;
-        cursor: pointer;
-        transition: background 120ms ease;
-      }
-
-      .hunt__go:hover {
-        background: var(--pool);
-      }
-
-      .hero__count {
-        margin: var(--s4) 0 0;
-        font-size: 0.8rem;
-        color: var(--on-night-soft);
-      }
-
-      /* --- Bands ------------------------------------------------------------ */
-
-      .band {
+      .block {
         padding-top: var(--s8);
       }
 
-      .plate-link {
-        display: block;
+      .see-all {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.2rem;
+        font-size: 0.92rem;
+        text-decoration: none;
       }
 
-      /* What the chosen span costs at this property's lowest nightly rate. */
-      .price-row__span {
-        margin-left: auto;
-        font-size: 0.78rem;
-        color: var(--ink-faint);
+      .arrows {
+        display: flex;
+        gap: var(--s2);
       }
 
-      /* --- Cities ----------------------------------------------------------- */
+      .arrow {
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 50%;
+        border: 1px solid var(--line);
+        background: var(--surface);
+        color: var(--ink);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: border-color 120ms ease, box-shadow 120ms ease;
+      }
 
-      .cities {
+      .arrow:hover {
+        border-color: var(--line-strong);
+        box-shadow: var(--shadow);
+      }
+
+      /* A row that scrolls sideways inside itself, snapping card to card. */
+      .rail {
         display: grid;
-        gap: var(--s4);
-        grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+        grid-auto-flow: column;
+        gap: var(--s5);
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        scrollbar-width: none;
+        padding-bottom: var(--s2);
+      }
+
+      .rail::-webkit-scrollbar {
+        display: none;
+      }
+
+      .rail > * {
+        scroll-snap-align: start;
+      }
+
+      .rail--cities {
+        grid-auto-columns: minmax(15rem, calc((100% - 3 * var(--s5)) / 4));
+      }
+
+      .rail--stays {
+        grid-auto-columns: minmax(17rem, calc((100% - 2 * var(--s5)) / 3));
+        padding: var(--s2) 0;
       }
 
       .city {
         position: relative;
         display: block;
+        aspect-ratio: 4 / 3.6;
         border-radius: var(--radius-lg);
         overflow: hidden;
+        background: linear-gradient(150deg, #2b2457, #6941e5);
         text-decoration: none;
-        box-shadow: var(--shadow);
-        transition: transform 140ms ease;
       }
 
-      .city:hover {
-        transform: translateY(-3px);
+      .city img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 400ms ease;
       }
 
-      .city__name {
+      .city:hover img {
+        transform: scale(1.04);
+      }
+
+      .city::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(to top, rgb(8 10 24 / 70%), transparent 55%);
+      }
+
+      .city__label {
         position: absolute;
         left: var(--s4);
+        right: var(--s4);
         bottom: var(--s4);
-        font-family: var(--display);
-        font-weight: 700;
-        font-size: 1.1rem;
+        z-index: 1;
+        display: flex;
+        flex-direction: column;
         color: #fff;
-        text-shadow: 0 1px 12px rgb(0 0 0 / 60%);
+        line-height: 1.3;
       }
 
-      /* --- Steps ------------------------------------------------------------ */
-
-      .steps {
-        list-style: none;
-        padding: 0;
-        margin: 0 0 var(--s6);
-        display: grid;
-        gap: var(--s5);
-        grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
-      }
-
-      .steps li {
-        border-top: 2px solid var(--line);
-        padding-top: var(--s3);
-      }
-
-      /* Numbered because booking genuinely is a sequence. */
-      .steps__n {
-        color: var(--pool);
-        font-size: 0.8rem;
+      .city__label strong {
+        font-size: 1.05rem;
         font-weight: 600;
       }
 
-      .steps h3 {
-        margin: var(--s2) 0 var(--s1);
+      .city__label span {
+        font-size: 0.84rem;
+        color: rgb(255 255 255 / 80%);
       }
 
-      .steps p {
-        font-size: 0.9rem;
+      /* --- Story -------------------------------------------------------------- */
+
+      .story-band {
+        margin-top: var(--s8);
+        padding: var(--s8) 0;
+        background: var(--band);
+      }
+
+      .story {
+        display: grid;
+        grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+        gap: clamp(2rem, 6vw, 5rem);
+        align-items: center;
+      }
+
+      .story__media {
+        position: relative;
+        padding: 0 var(--s7) var(--s8) 0;
+      }
+
+      .story__photo {
+        border-radius: var(--radius-lg);
+        object-fit: cover;
+        width: 100%;
+      }
+
+      .story__photo--main {
+        aspect-ratio: 4 / 3;
+      }
+
+      .story__photo--inset {
+        position: absolute;
+        right: 0;
+        top: 12%;
+        width: 34%;
+        aspect-ratio: 3 / 4;
+        border: 5px solid var(--band);
+        box-shadow: var(--shadow-lift);
+      }
+
+      .turnover {
+        position: absolute;
+        left: 6%;
+        right: 16%;
+        bottom: var(--s2);
         margin: 0;
+        padding: var(--s4);
+        box-shadow: var(--shadow-lift);
+        border-color: transparent;
+      }
+
+      .turnover figcaption {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: var(--s3);
+        font-size: 0.86rem;
+        margin-bottom: var(--s3);
+      }
+
+      .turnover__key {
+        display: flex;
+        gap: var(--s4);
+        margin: var(--s3) 0 0;
+        font-size: 0.78rem;
         color: var(--ink-soft);
       }
 
-      @media (max-width: 760px) {
-        .hunt {
-          border-radius: var(--radius-xl);
+      .turnover__key span {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+      }
+
+      .key {
+        width: 0.8rem;
+        height: 0.8rem;
+        border-radius: 2px;
+        display: inline-block;
+      }
+
+      .key--taken {
+        background: var(--lamp);
+      }
+
+      .key--yours {
+        background: var(--pool-soft);
+        box-shadow: inset 0 0 0 2px var(--pool);
+      }
+
+      .story__text h2 {
+        font-size: clamp(1.6rem, 1.2rem + 1.4vw, 2.3rem);
+        letter-spacing: -0.03em;
+        max-width: 20ch;
+      }
+
+      .ticks {
+        list-style: none;
+        padding: 0;
+        margin: var(--s5) 0 var(--s6);
+        display: grid;
+        gap: var(--s3);
+      }
+
+      .ticks li {
+        display: flex;
+        align-items: center;
+        gap: var(--s3);
+        font-size: 0.95rem;
+      }
+
+      .ticks app-icon {
+        width: 1.6rem;
+        height: 1.6rem;
+        border-radius: 50%;
+        background: var(--pool-soft);
+        color: var(--pool);
+        align-items: center;
+        justify-content: center;
+      }
+
+      /* --- Stays rail ---------------------------------------------------------- */
+
+      .stays-wrap {
+        position: relative;
+      }
+
+      .arrow--float {
+        position: absolute;
+        top: 38%;
+        z-index: 2;
+        box-shadow: var(--shadow);
+      }
+
+      .arrow--left {
+        left: -1.25rem;
+      }
+
+      .arrow--right {
+        right: -1.25rem;
+      }
+
+      /* --- Host band ------------------------------------------------------------ */
+
+      .host {
+        position: relative;
+        border-radius: var(--radius-xl);
+        overflow: hidden;
+        background-size: cover;
+        background-position: center;
+        isolation: isolate;
+        padding: clamp(3rem, 8vw, 6rem) var(--s5);
+        text-align: center;
+      }
+
+      .host::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        background: linear-gradient(180deg, rgb(12 16 34 / 62%), rgb(12 16 34 / 72%));
+      }
+
+      .host__inner {
+        max-width: 38rem;
+        margin: 0 auto;
+        color: rgb(255 255 255 / 88%);
+      }
+
+      .host__eyebrow {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #d9ceff;
+        margin-bottom: var(--s3);
+      }
+
+      .host h2 {
+        color: #fff;
+        font-size: clamp(1.6rem, 1.2rem + 1.6vw, 2.4rem);
+        letter-spacing: -0.03em;
+        text-wrap: balance;
+      }
+
+      .host__cta {
+        margin-top: var(--s3);
+      }
+
+      @media (max-width: 1340px) {
+        .arrow--left {
+          left: 0.5rem;
         }
 
-        .hunt__seg {
-          flex: 1 1 100%;
-          border-right: 0;
-          border-bottom: 1px solid var(--line);
-          padding: 0.55rem 0.9rem;
+        .arrow--right {
+          right: 0.5rem;
+        }
+      }
+
+      @media (max-width: 900px) {
+        .story {
+          grid-template-columns: 1fr;
         }
 
-        .hunt__go {
-          width: 100%;
-          margin-top: 0.45rem;
+        .story__media {
+          padding-right: var(--s5);
+        }
+      }
+
+      @media (max-width: 600px) {
+        .hero {
+          padding-top: var(--s7);
+        }
+
+        .arrow--float {
+          display: none;
+        }
+
+        .turnover {
+          left: 0;
+          right: 0;
         }
       }
 
       @media (prefers-reduced-motion: reduce) {
-        .city:hover {
+        .city:hover img {
           transform: none;
         }
       }
@@ -487,86 +569,73 @@ export class HomeComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly api = inject(ApiService);
 
-  protected readonly minDate = today();
+  protected readonly heroPhoto = unsplash(HERO_PHOTO, 2000);
+  protected readonly hostPhoto = unsplash(HOST_PHOTO, 2000);
+  protected readonly storyPhotos = STORY_PHOTOS.map((id) => unsplash(id, 1000));
 
-  protected city = '';
-  protected checkIn = addDays(today(), 14);
-  protected checkOut = addDays(today(), 17);
-  protected guests = 2;
+  protected readonly fmt = (iso: string) => formatDate(iso, false);
 
-  /** The hero ribbon is illustrative: a month, with a plausible pattern of stays. */
-  protected readonly ribbonFrom = addDays(today(), 7);
-  protected readonly ribbonTo = addDays(today(), 35);
-  protected readonly demoOccupied = [
-    ...[0, 1, 2].map((d) => addDays(this.ribbonFrom, d)),
-    ...[5, 6, 7, 8].map((d) => addDays(this.ribbonFrom, d)),
-    ...[12, 13].map((d) => addDays(this.ribbonFrom, d)),
-    ...[19, 20, 21, 22, 23].map((d) => addDays(this.ribbonFrom, d)),
-  ];
+  /**
+   * An illustrative fortnight in one room: a guest leaves on the morning of the
+   * sixth night, and your stay begins that same evening.
+   */
+  private readonly demoStart = addDays(today(), 7);
+  protected readonly demo = {
+    from: this.demoStart,
+    to: addDays(this.demoStart, 14),
+    occupied: [0, 1, 2, 3, 4, 10, 11, 12].map((d) => addDays(this.demoStart, d)),
+    selectedFrom: addDays(this.demoStart, 5),
+    selectedTo: addDays(this.demoStart, 9),
+  };
 
-  protected readonly nights = signal(3);
-
-  /** The month the card ribbons draw, always framing the current selection. */
-  protected readonly window = signal(this.frame());
   protected readonly featured = signal<HotelSummary[]>([]);
 
   /** Cities the catalogue actually covers, rather than a list written by hand. */
-  protected readonly cities = computed(() => [
-    ...new Set(this.featured().map((h) => h.address.city)),
-  ]);
+  protected readonly cities = computed<CityTile[]>(() => {
+    const tiles = new Map<string, CityTile>();
+
+    for (const hotel of this.featured()) {
+      const name = hotel.address.city;
+      const existing = tiles.get(name);
+
+      if (existing) {
+        existing.count++;
+        continue;
+      }
+
+      const known = CITY_PHOTOS[name.toLowerCase()];
+
+      tiles.set(name, {
+        name,
+        country: hotel.address.country,
+        photo: known ? unsplash(known, 900) : hotel.coverImageUrl,
+        count: 1,
+      });
+    }
+
+    return [...tiles.values()];
+  });
 
   ngOnInit(): void {
     // The landing page is useful without this, so a failure here stays quiet and
-    // the section simply does not render.
-    this.api.searchHotels({ page: 1, pageSize: 8 }).subscribe({
+    // the sections that depend on it simply do not render.
+    this.api.searchHotels({ page: 1, pageSize: 12 }).subscribe({
       next: (result) => this.featured.set(result.items),
       error: () => this.featured.set([]),
     });
   }
 
-  protected money(value: number): string {
-    return formatMoney(value);
+  protected scroll(row: HTMLElement, direction: 1 | -1): void {
+    row.scrollBy({ left: direction * row.clientWidth * 0.8, behavior: 'smooth' });
   }
 
-  protected minCheckOut(): string {
-    return addDays(this.checkIn, 1);
-  }
-
-  protected onCheckInChange(): void {
-    // Keep the span valid rather than letting the user submit something the API
-    // will only reject.
-    if (this.checkOut <= this.checkIn) {
-      this.checkOut = addDays(this.checkIn, 1);
-    }
-
-    this.recount();
-  }
-
-  protected recount(): void {
-    this.nights.set(nightsBetween(this.checkIn, this.checkOut));
-    this.window.set(this.frame());
-  }
-
-  private frame(): { from: string; to: string; selectedFrom: string; selectedTo: string } {
-    return {
-      from: addDays(this.checkIn, -4),
-      to: addDays(this.checkIn, 24),
-      selectedFrom: this.checkIn,
-      selectedTo: this.checkOut,
-    };
-  }
-
-  protected search(): void {
-    this.recount();
-
-    if (this.nights() < 1) return;
-
+  protected search(query: StaySearch): void {
     void this.router.navigate(['/search'], {
       queryParams: {
-        city: this.city || null,
-        checkIn: this.checkIn,
-        checkOut: this.checkOut,
-        guests: this.guests,
+        city: query.city || null,
+        checkIn: query.checkIn,
+        checkOut: query.checkOut,
+        guests: query.guests,
       },
     });
   }

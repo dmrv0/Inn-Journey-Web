@@ -7,17 +7,38 @@ import { RouterLink } from '@angular/router';
   imports: [RouterLink],
   template: `
     <div class="page wrap">
-      <p class="eyebrow">{{ code() }}</p>
+      <p class="code-mark">{{ code() }}</p>
       <h1>{{ heading() }}</h1>
       <p class="muted lede">{{ body() }}</p>
-      <a routerLink="/" class="btn">Back to the start</a>
+      <div class="buttons">
+        <a routerLink="/" class="btn btn--pill">Back to the start</a>
+        <a routerLink="/search" class="btn btn--ghost btn--pill">Find a stay</a>
+      </div>
     </div>
   `,
   styles: [
     `
       .wrap {
-        padding: var(--s8) var(--s5);
-        max-width: 44rem;
+        padding-top: var(--s8);
+        padding-bottom: var(--s8);
+        max-width: 40rem;
+        text-align: center;
+      }
+
+      .code-mark {
+        font-size: clamp(4rem, 3rem + 5vw, 7rem);
+        font-weight: 700;
+        letter-spacing: -0.05em;
+        line-height: 1;
+        color: var(--pool);
+        margin-bottom: var(--s4);
+      }
+
+      .buttons {
+        display: flex;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: var(--s3);
       }
 
       .lede {

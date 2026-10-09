@@ -29,8 +29,76 @@ public class DatabaseSeeder(
         var amenities = await SeedAmenitiesAsync(cancellationToken);
         var roomTypes = await SeedRoomTypesAsync(cancellationToken);
         await SeedHotelsAsync(owners, amenities, roomTypes, cancellationToken);
+        await SeedHotelImagesAsync(cancellationToken);
 
         logger.LogInformation("Database seeding complete.");
+    }
+
+    /// <summary>
+    /// Photographs for the demonstration hotels, hot-linked from Unsplash. Keyed
+    /// by name and only applied to a hotel that has no images yet, so it also
+    /// fills in a database that was seeded before photographs existed.
+    /// </summary>
+    private static readonly Dictionary<string, string[]> DemoPhotos = new()
+    {
+        ["The Harbour Rooms"] =
+        [
+            "1590490360182-c33d57733427", "1559599238-308793637427",
+            "1618773928121-c32242e63f39", "1522708323590-d24dbb6b0267"
+        ],
+        ["Pine & Salt"] =
+        [
+            "1600596542815-ffad4c1539a9", "1512917774080-9991f1c4c750",
+            "1551882547-ff40c63fe5fa", "1584132967334-10e028bd69f7"
+        ],
+        ["The Signal Box"] =
+        [
+            "1505693416388-ac5ce068fe85", "1631049307264-da0ec9d70304",
+            "1502672260266-1c1ef2d93688", "1484154218962-a197022b5858"
+        ],
+        ["Casa Ventana"] =
+        [
+            "1564501049412-61c2a3083791", "1571896349842-33c89424de2d",
+            "1582719478250-c89cae4dc85b", "1445019980597-93fa8acb246c"
+        ],
+        ["Northlight Lodge"] =
+        [
+            "1470770841072-f978cf4d019e", "1596394516093-501ba68a0ba6",
+            "1611892440504-42a792e24d32", "1600585154340-be6161a56a0c"
+        ]
+    };
+
+    private async Task SeedHotelImagesAsync(CancellationToken cancellationToken)
+    {
+        var names = DemoPhotos.Keys.ToList();
+
+        var hotels = await context.Hotels
+            .Where(h => names.Contains(h.Name) && !h.Images.Any())
+            .ToListAsync(cancellationToken);
+
+        foreach (var hotel in hotels)
+        {
+            var photos = DemoPhotos[hotel.Name];
+
+            for (var i = 0; i < photos.Length; i++)
+            {
+                context.HotelImages.Add(new HotelImage
+                {
+                    Id = Guid.NewGuid(),
+                    HotelId = hotel.Id,
+                    Url = $"https://images.unsplash.com/photo-{photos[i]}?auto=format&fit=crop&w=1400&q=75",
+                    AltText = hotel.Name,
+                    SortOrder = i,
+                    IsCover = i == 0
+                });
+            }
+        }
+
+        if (hotels.Count > 0)
+        {
+            await context.SaveChangesAsync(cancellationToken);
+            logger.LogInformation("Added photographs to {Count} demonstration hotels.", hotels.Count);
+        }
     }
 
     private async Task SeedRolesAsync()

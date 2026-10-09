@@ -24,12 +24,12 @@ type Tab = 'board' | 'bookings' | 'rooms' | 'revenue';
   imports: [FormsModule, RouterLink, RibbonComponent, StatusComponent],
   template: `
     <div class="page wrap">
-      <header class="head">
+      <header class="page-head">
         <div>
-          <p class="eyebrow"><a routerLink="/manage">My properties</a></p>
+          <a class="crumb" routerLink="/manage">My properties</a>
           <h1>{{ hotel()?.name || 'Property' }}</h1>
         </div>
-        <a class="btn btn--ghost btn--sm" [routerLink]="['/hotels', hotelId]">View public page</a>
+        <a class="btn btn--ghost btn--pill" [routerLink]="['/hotels', hotelId]">View public page</a>
       </header>
 
       <nav class="tabs" role="tablist">
@@ -253,43 +253,19 @@ type Tab = 'board' | 'bookings' | 'rooms' | 'revenue';
   styles: [
     `
       .wrap {
-        padding: var(--s6) var(--s5) var(--s8);
+        padding-bottom: var(--s8);
       }
 
-      .head {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-end;
-        gap: var(--s4);
-        flex-wrap: wrap;
-        margin-bottom: var(--s4);
-      }
-
-      .head .eyebrow a {
-        color: inherit;
-      }
-
-      .tabs {
-        display: flex;
-        gap: var(--s4);
-        border-bottom: 1px solid var(--line);
-        margin-bottom: var(--s5);
-        flex-wrap: wrap;
-      }
-
-      .tabs button {
-        background: none;
-        border: 0;
-        border-bottom: 2px solid transparent;
-        padding: var(--s2) 0;
-        cursor: pointer;
+      .crumb {
+        display: inline-block;
+        font-size: 0.88rem;
         color: var(--ink-soft);
-        font-size: 0.95rem;
+        text-decoration: none;
+        margin-bottom: var(--s1);
       }
 
-      .tabs .on {
-        color: var(--ink);
-        border-bottom-color: var(--lamp);
+      .crumb:hover {
+        color: var(--pool);
       }
 
       .board__head {
@@ -310,7 +286,7 @@ type Tab = 'board' | 'bookings' | 'rooms' | 'revenue';
          by hairlines rather than colour, so --lamp is the only saturated thing
          on screen and a taken night is unmistakable. */
       .board {
-        padding: var(--s4);
+        padding: var(--s4) var(--s5);
         display: grid;
         gap: 0;
       }
@@ -336,7 +312,7 @@ type Tab = 'board' | 'bookings' | 'rooms' | 'revenue';
       .key {
         width: 0.75rem;
         height: 0.75rem;
-        border-radius: 1px;
+        border-radius: 2px;
         display: inline-block;
       }
 
@@ -344,25 +320,15 @@ type Tab = 'board' | 'bookings' | 'rooms' | 'revenue';
       .key--free { background: var(--surface-sunk); margin-left: var(--s3); }
 
       .table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.9rem;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-lg);
+        border-collapse: separate;
+        border-spacing: 0;
+        overflow: hidden;
       }
 
-      .table th,
-      .table td {
-        text-align: left;
-        padding: var(--s2) var(--s3);
-        border-bottom: 1px solid var(--line);
-      }
-
-      .table th {
-        font-size: 0.72rem;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: var(--ink-faint);
-        font-family: var(--mono);
-        font-weight: 500;
+      .table tbody tr:last-child td {
+        border-bottom: 0;
       }
 
       .nowrap {
@@ -403,7 +369,7 @@ type Tab = 'board' | 'bookings' | 'rooms' | 'revenue';
       }
 
       .stat {
-        padding: var(--s4);
+        padding: var(--s5);
         border: 1px solid var(--line);
         border-radius: var(--radius-lg);
         background: var(--surface);
@@ -412,24 +378,22 @@ type Tab = 'board' | 'bookings' | 'rooms' | 'revenue';
       }
 
       .stat__label {
-        font-size: 0.72rem;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: var(--ink-faint);
-        font-family: var(--mono);
+        font-size: 0.86rem;
+        color: var(--ink-soft);
       }
 
       .stat__value {
-        font-size: 1.5rem;
-        font-weight: 600;
+        font-size: 1.7rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
       }
 
       .chart {
         display: flex;
         align-items: flex-end;
-        gap: 2px;
-        height: 10rem;
-        padding: var(--s3);
+        gap: 3px;
+        height: 12rem;
+        padding: var(--s4);
         background: var(--surface);
         border: 1px solid var(--line);
         border-radius: var(--radius-lg);
@@ -439,7 +403,7 @@ type Tab = 'board' | 'bookings' | 'rooms' | 'revenue';
         flex: 1 1 auto;
         min-height: 2px;
         background: var(--pool);
-        border-radius: 1px 1px 0 0;
+        border-radius: 3px 3px 0 0;
       }
 
       .small {

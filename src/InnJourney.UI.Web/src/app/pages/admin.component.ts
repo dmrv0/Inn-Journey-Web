@@ -13,13 +13,14 @@ type Tab = 'users' | 'roomTypes' | 'amenities';
   imports: [FormsModule],
   template: `
     <div class="page wrap">
-      <header>
-        <p class="eyebrow">Administration</p>
-        <h1>Catalogues and accounts</h1>
-        <p class="muted">
-          Room types and facilities are shared across every property, so a filter for
-          &ldquo;Sea view&rdquo; means the same thing everywhere.
-        </p>
+      <header class="page-head">
+        <div>
+          <h1>Catalogues and accounts</h1>
+          <p class="muted lede">
+            Room types and facilities are shared across every property, so a filter for
+            &ldquo;Sea view&rdquo; means the same thing everywhere.
+          </p>
+        </div>
       </header>
 
       <nav class="tabs" role="tablist">
@@ -161,28 +162,11 @@ type Tab = 'users' | 'roomTypes' | 'amenities';
   styles: [
     `
       .wrap {
-        padding: var(--s6) var(--s5) var(--s8);
+        padding-bottom: var(--s8);
       }
 
-      .tabs {
-        display: flex;
-        gap: var(--s4);
-        border-bottom: 1px solid var(--line);
-        margin: var(--s5) 0;
-      }
-
-      .tabs button {
-        background: none;
-        border: 0;
-        border-bottom: 2px solid transparent;
-        padding: var(--s2) 0;
-        cursor: pointer;
-        color: var(--ink-soft);
-      }
-
-      .tabs .on {
-        color: var(--ink);
-        border-bottom-color: var(--lamp);
+      .lede {
+        max-width: 60ch;
       }
 
       .toolbar {
@@ -191,7 +175,11 @@ type Tab = 'users' | 'roomTypes' | 'amenities';
         align-items: flex-end;
         flex-wrap: wrap;
         margin-bottom: var(--s4);
-        padding: var(--s4);
+        padding: var(--s4) 0;
+      }
+
+      .toolbar.card {
+        padding: var(--s4) var(--s5);
       }
 
       .toolbar .field {
@@ -204,26 +192,19 @@ type Tab = 'users' | 'roomTypes' | 'amenities';
       }
 
       .table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.9rem;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-lg);
+        border-collapse: separate;
+        border-spacing: 0;
+        overflow: hidden;
       }
 
-      .table th,
       .table td {
-        text-align: left;
-        padding: var(--s2) var(--s3);
-        border-bottom: 1px solid var(--line);
         vertical-align: top;
       }
 
-      .table th {
-        font-size: 0.72rem;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: var(--ink-faint);
-        font-family: var(--mono);
-        font-weight: 500;
+      .table tbody tr:last-child td {
+        border-bottom: 0;
       }
 
       .roles {
@@ -252,7 +233,7 @@ type Tab = 'users' | 'roomTypes' | 'amenities';
         justify-content: space-between;
         align-items: center;
         gap: var(--s4);
-        padding: var(--s3) var(--s4);
+        padding: var(--s4) var(--s5);
       }
 
       .row p {

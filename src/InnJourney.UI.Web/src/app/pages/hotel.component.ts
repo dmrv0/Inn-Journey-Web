@@ -3,189 +3,300 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 
 import { ApiService } from '../core/api.service';
-import { addDays, formatDate, formatMoney, nightsBetween, today } from '../core/dates';
+import { addDays, formatDate, formatMoney, formatPrice, nightsBetween, today } from '../core/dates';
 import { AvailableRoom, HotelDetail, Review } from '../core/models';
 import { ToastService } from '../core/toast.service';
+import { IconComponent, amenityIcon } from '../shared/icon.component';
+import { PlateComponent } from '../shared/plate.component';
 import { RibbonComponent } from '../shared/ribbon.component';
-import { StarsComponent } from '../shared/stars.component';
 
 @Component({
   selector: 'app-hotel',
   standalone: true,
-  imports: [FormsModule, RouterLink, RibbonComponent, StarsComponent],
+  imports: [FormsModule, RouterLink, IconComponent, PlateComponent, RibbonComponent],
   template: `
     @if (loading()) {
-      <div class="page pad">
-        <div class="skeleton" style="height: 2.4rem; width: 50%"></div>
-        <div class="skeleton" style="height: 18rem; margin-top: 1.5rem"></div>
+      <div class="page--wide pad">
+        <div class="skeleton" style="height: 2rem; width: 40%"></div>
+        <div class="skeleton" style="height: 26rem; margin-top: 1.5rem; border-radius: 20px"></div>
       </div>
     } @else {
     @if (hotel(); as h) {
-      <article>
-        <header class="page pad head">
-          <div class="head__text">
-            <p class="eyebrow">{{ h.address.city }}, {{ h.address.country }}</p>
-            <h1>{{ h.name }}</h1>
+      <article class="page--wide pad">
+        <a routerLink="/search" class="back">
+          <app-icon name="chevron-left" [size]="16" />
+          All stays
+        </a>
 
-            <div class="head__meta">
-              <app-stars [value]="h.stars" />
+        <header class="head">
+          <p class="head__where">
+            <app-icon name="pin" [size]="16" />
+            {{ h.address.city }}, {{ h.address.country }}
+          </p>
+          <h1>{{ h.name }}</h1>
+
+          <ul class="head__meta">
+            <li>
+              <app-icon class="star" name="star" [size]="16" [filled]="true" [stroke]="1" />
               @if (h.reviewCount > 0) {
-                <span class="score num">{{ h.averageRating.toFixed(1) }}</span>
-                <span class="muted small">{{ h.reviewCount }} review{{ h.reviewCount === 1 ? '' : 's' }}</span>
+                <strong class="num">{{ h.averageRating.toFixed(1) }}</strong>
+                <button type="button" class="linklike" (click)="jump('reviews')">{{ h.reviewCount }} review{{ h.reviewCount === 1 ? '' : 's' }}</button>
               } @else {
-                <span class="muted small">No reviews yet</span>
+                <span>No reviews yet</span>
               }
-            </div>
-
-            @if (h.description) {
-              <p class="lede">{{ h.description }}</p>
-            }
-
-            <p class="muted small">{{ h.address.line }}, {{ h.address.city }}</p>
-          </div>
-
-          @if (h.images.length) {
-            <div class="gallery">
-              @for (image of h.images.slice(0, 4); track image.id) {
-                <img [src]="image.url" [alt]="image.altText || h.name" loading="lazy" />
-              }
-            </div>
-          }
+            </li>
+            <li>
+              <app-icon name="building" [size]="16" />
+              {{ h.stars }}-star hotel
+            </li>
+            <li>
+              <app-icon name="bed" [size]="16" />
+              {{ h.rooms.length }} room{{ h.rooms.length === 1 ? '' : 's' }}
+            </li>
+          </ul>
         </header>
 
-        @if (h.amenities.length) {
-          <section class="page pad">
-            <h2 class="section-title">Facilities</h2>
-            <ul class="chips">
-              @for (a of h.amenities; track a.id) {
-                <li class="tag">{{ a.name }}</li>
-              }
-            </ul>
-          </section>
+        @if (h.images.length) {
+          <div class="gallery" [class.gallery--single]="h.images.length < 4">
+            @for (image of h.images.slice(0, h.images.length < 4 ? 1 : 4); track image.id; let i = $index) {
+              <img
+                [class]="'gallery__img gallery__img--' + i"
+                [src]="image.url"
+                [alt]="image.altText || h.name"
+                [attr.loading]="i === 0 ? 'eager' : 'lazy'"
+              />
+            }
+            <span class="gallery__count num">{{ h.images.length }} photo{{ h.images.length === 1 ? '' : 's' }}</span>
+          </div>
+        } @else {
+          <div class="gallery gallery--single">
+            <app-plate class="gallery__plate" [seed]="h.id" [label]="h.name" />
+          </div>
         }
 
-        <section class="page pad">
-          <h2 class="section-title">Rooms</h2>
+        <div class="layout">
+          <div class="main">
+            <nav class="tabs" aria-label="On this page">
+              @for (tab of tabs; track tab.id) {
+                <button type="button" [class.on]="tab.id === activeTab()" (click)="jump(tab.id)">
+                  {{ tab.label }}
+                </button>
+              }
+            </nav>
 
-          <form class="span" (ngSubmit)="loadAvailability()">
-            <div class="field">
-              <label for="in">Check in</label>
-              <input id="in" class="input input--num" type="date" [min]="minDate" [(ngModel)]="checkIn" name="in" />
-            </div>
-            <div class="field">
-              <label for="out">Check out</label>
-              <input id="out" class="input input--num" type="date" [min]="minOut()" [(ngModel)]="checkOut" name="out" />
-            </div>
-            <div class="field narrow">
-              <label for="adults">Adults</label>
-              <input id="adults" class="input input--num" type="number" min="1" max="20" [(ngModel)]="adults" name="adults" />
-            </div>
-            <div class="field narrow">
-              <label for="children">Children</label>
-              <input id="children" class="input input--num" type="number" min="0" max="20" [(ngModel)]="children" name="children" />
-            </div>
-            <button class="btn" type="submit">Check these nights</button>
-          </form>
+            <section id="overview" class="section">
+              <h2>About this place</h2>
+              @if (h.description) {
+                <p class="lede">{{ h.description }}</p>
+              }
 
-          <p class="muted small num">
-            {{ nights() }} night{{ nights() === 1 ? '' : 's' }} &middot;
-            {{ formatDate(checkIn) }} &rarr; {{ formatDate(checkOut) }}
-          </p>
+              @if (h.amenities.length) {
+                <h3 class="sub">What this place offers</h3>
+                <ul class="offers">
+                  @for (a of h.amenities; track a.id) {
+                    <li>
+                      <app-icon [name]="icon(a.name)" [size]="20" />
+                      {{ a.name }}
+                    </li>
+                  }
+                </ul>
+              }
+            </section>
 
-          @if (checkingAvailability()) {
-            <div class="skeleton" style="height: 8rem; margin-top: 1rem"></div>
-          } @else if (available().length === 0) {
-            <div class="empty">
-              <h3>No rooms free for those nights</h3>
-              <p>Try a shorter stay, fewer guests, or different dates.</p>
-            </div>
-          } @else {
-            <ul class="rooms">
-              @for (option of available(); track option.room.id) {
-                <li class="room card">
-                  <div class="room__main">
-                    <h3>
-                      {{ option.room.roomType?.name || 'Room' }}
-                      <span class="room__no num">no. {{ option.room.number }}</span>
-                    </h3>
+            <section id="rooms" class="section">
+              <div class="section__head">
+                <h2>Rooms</h2>
+                <p class="muted num">
+                  {{ fmt(checkIn) }} &ndash; {{ fmt(checkOut) }} &middot;
+                  {{ nights() }} night{{ nights() === 1 ? '' : 's' }}
+                </p>
+              </div>
 
-                    <p class="muted small">
-                      Sleeps {{ option.room.capacity }} &middot;
-                      <span class="num">{{ money(option.room.adultPrice) }}</span> per adult per night
-                    </p>
+              @if (checkingAvailability()) {
+                <div class="skeleton" style="height: 9rem"></div>
+              } @else if (available().length === 0) {
+                <div class="empty">
+                  <h3>No rooms free for those nights</h3>
+                  <p>Try a shorter stay, fewer guests, or different dates.</p>
+                </div>
+              } @else {
+                <ul class="rooms">
+                  @for (option of available(); track option.room.id) {
+                    <li class="room card">
+                      <div class="room__main">
+                        <h3>
+                          {{ option.room.roomType?.name || 'Room' }}
+                          <span class="room__no">Room <span class="num">{{ option.room.number }}</span></span>
+                        </h3>
 
-                    @if (option.room.amenities.length) {
-                      <ul class="chips chips--tight">
-                        @for (a of option.room.amenities; track a.id) {
-                          <li class="tag">{{ a.name }}</li>
+                        <ul class="facts">
+                          <li>
+                            <app-icon name="users" [size]="16" />
+                            Sleeps {{ option.room.capacity }}
+                          </li>
+                          @for (a of option.room.amenities; track a.id) {
+                            <li>
+                              <app-icon [name]="icon(a.name)" [size]="16" />
+                              {{ a.name }}
+                            </li>
+                          }
+                        </ul>
+
+                        <app-ribbon
+                          class="room__ribbon"
+                          [from]="checkIn"
+                          [to]="checkOut"
+                          [selectedFrom]="checkIn"
+                          [selectedTo]="checkOut"
+                          [showScale]="false"
+                          [compact]="true"
+                        />
+                      </div>
+
+                      <div class="room__book">
+                        <p class="price">
+                          <span class="price__night">{{ price(option.room.adultPrice) }}<small>/adult/night</small></span>
+                        </p>
+                        <p class="room__total num">
+                          {{ money(option.totalPrice) }} for {{ option.nights }} night{{ option.nights === 1 ? '' : 's' }}
+                        </p>
+
+                        <a
+                          class="btn"
+                          [routerLink]="['/book', option.room.id]"
+                          [queryParams]="{ checkIn, checkOut, adults, children }"
+                        >
+                          Reserve
+                        </a>
+                      </div>
+                    </li>
+                  }
+                </ul>
+              }
+            </section>
+
+            <section id="reviews" class="section">
+              <div class="section__head">
+                <h2>What guests said</h2>
+                @if (h.reviewCount > 0) {
+                  <p class="score">
+                    <app-icon class="star" name="star" [size]="18" [filled]="true" [stroke]="1" />
+                    <strong class="num">{{ h.averageRating.toFixed(1) }}</strong>
+                    <span class="muted">from {{ h.reviewCount }} review{{ h.reviewCount === 1 ? '' : 's' }}</span>
+                  </p>
+                }
+              </div>
+
+              @if (reviews().length === 0) {
+                <div class="empty">
+                  <h3>No reviews yet</h3>
+                  <p>Reviews appear here once a guest has completed a stay.</p>
+                </div>
+              } @else {
+                <ul class="reviews">
+                  @for (review of reviews(); track review.id) {
+                    <li class="review card">
+                      <span class="review__stars" [attr.aria-label]="review.rating + ' out of 5'" role="img">
+                        @for (n of [1, 2, 3, 4, 5]; track n) {
+                          <app-icon name="star" [size]="15" [filled]="n <= review.rating" [stroke]="1.2" [class.dim]="n > review.rating" />
                         }
-                      </ul>
-                    }
+                      </span>
 
-                    <app-ribbon
-                      class="room__ribbon"
-                      [from]="checkIn"
-                      [to]="checkOut"
-                      [selectedFrom]="checkIn"
-                      [selectedTo]="checkOut"
-                      [showScale]="false"
-                      [compact]="true"
-                    />
-                  </div>
+                      @if (review.comment) {
+                        <p class="review__text">{{ review.comment }}</p>
+                      }
 
-                  <div class="room__book">
-                    <p class="room__total">
-                      <span class="num">{{ money(option.totalPrice) }}</span>
-                      <span class="muted small">total for {{ option.nights }} night{{ option.nights === 1 ? '' : 's' }}</span>
-                    </p>
+                      <div class="review__by">
+                        <span class="review__avatar" aria-hidden="true">{{ review.authorName.charAt(0) }}</span>
+                        <span>
+                          <strong>{{ review.authorName }}</strong>
+                          <span class="muted">{{ fmt(review.createdDate) }}</span>
+                        </span>
+                      </div>
 
-                    <a
-                      class="btn"
-                      [routerLink]="['/book', option.room.id]"
-                      [queryParams]="{ checkIn, checkOut, adults, children }"
-                    >
-                      Reserve
-                    </a>
-                  </div>
-                </li>
-              }
-            </ul>
-          }
-        </section>
-
-        <section class="page pad">
-          <h2 class="section-title">What guests said</h2>
-
-          @if (reviews().length === 0) {
-            <div class="empty">
-              <h3>No reviews yet</h3>
-              <p>Reviews appear here once a guest has completed a stay.</p>
-            </div>
-          } @else {
-            <ul class="reviews">
-              @for (review of reviews(); track review.id) {
-                <li class="review">
-                  <div class="review__head">
-                    <strong>{{ review.authorName }}</strong>
-                    <span class="review__rating num">{{ review.rating }}/5</span>
-                    <span class="muted small">{{ formatDate(review.createdDate) }}</span>
-                  </div>
-
-                  @if (review.comment) {
-                    <p>{{ review.comment }}</p>
+                      @if (review.ownerResponse) {
+                        <blockquote class="response">
+                          <strong>Reply from {{ h.name }}</strong>
+                          {{ review.ownerResponse }}
+                        </blockquote>
+                      }
+                    </li>
                   }
-
-                  @if (review.ownerResponse) {
-                    <blockquote class="response">
-                      <span class="eyebrow">Reply from {{ h.name }}</span>
-                      {{ review.ownerResponse }}
-                    </blockquote>
-                  }
-                </li>
+                </ul>
               }
-            </ul>
-          }
-        </section>
+            </section>
+
+            <section id="location" class="section">
+              <h2>Where you'll stay</h2>
+              <div class="where card">
+                <app-icon name="pin" [size]="22" />
+                <div>
+                  <strong>{{ h.address.line }}</strong>
+                  <p class="muted">
+                    {{ h.address.city }}@if (h.address.postalCode) { {{ h.address.postalCode }}}, {{ h.address.country }}
+                  </p>
+                </div>
+                @if (h.googleMapsUrl) {
+                  <a class="btn btn--ghost btn--sm" [href]="h.googleMapsUrl" target="_blank" rel="noopener">Open in Maps</a>
+                }
+              </div>
+
+              @if (h.phone || h.email) {
+                <ul class="contact">
+                  @if (h.phone) {
+                    <li><app-icon name="phone" [size]="16" /> {{ h.phone }}</li>
+                  }
+                  @if (h.email) {
+                    <li><app-icon name="mail" [size]="16" /> {{ h.email }}</li>
+                  }
+                </ul>
+              }
+            </section>
+          </div>
+
+          <aside class="booking card">
+            <p class="booking__from">
+              @if (fromPrice() !== null) {
+                <span class="price__night">{{ price(fromPrice()) }}<small>/night</small></span>
+                <span class="muted">from, per adult</span>
+              } @else {
+                <span class="muted">No rooms listed yet</span>
+              }
+            </p>
+
+            <form class="booking__form" (ngSubmit)="loadAvailability()">
+              <div class="booking__grid">
+                <div class="cell">
+                  <label for="in">Check-in</label>
+                  <input id="in" type="date" [min]="minDate" [(ngModel)]="checkIn" name="in" />
+                </div>
+                <div class="cell">
+                  <label for="out">Check-out</label>
+                  <input id="out" type="date" [min]="minOut()" [(ngModel)]="checkOut" name="out" />
+                </div>
+                <div class="cell">
+                  <label for="adults">Adults</label>
+                  <input id="adults" type="number" min="1" max="20" [(ngModel)]="adults" name="adults" />
+                </div>
+                <div class="cell">
+                  <label for="children">Children</label>
+                  <input id="children" type="number" min="0" max="20" [(ngModel)]="children" name="children" />
+                </div>
+              </div>
+
+              <button class="btn btn--block btn--lg" type="submit">Check availability</button>
+            </form>
+
+            <p class="booking__note muted">
+              @if (!checkingAvailability() && available().length > 0) {
+                {{ available().length }} room{{ available().length === 1 ? '' : 's' }} free for these nights.
+                <button type="button" class="linklike" (click)="jump('rooms')">See rooms</button>
+              } @else {
+                You won't be charged until you confirm.
+              }
+            </p>
+          </aside>
+        </div>
       </article>
     }
     }
@@ -193,102 +304,209 @@ import { StarsComponent } from '../shared/stars.component';
   styles: [
     `
       .pad {
-        padding-top: var(--s6);
+        padding-top: var(--s5);
       }
 
-      .head {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-        gap: var(--s6);
-        align-items: start;
+      .back {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.2rem;
+        font-size: 0.88rem;
+        color: var(--ink-soft);
+        text-decoration: none;
+        margin-bottom: var(--s4);
       }
 
-      @media (max-width: 860px) {
-        .head {
-          grid-template-columns: 1fr;
-        }
+      .back:hover {
+        color: var(--ink);
+      }
+
+      .head h1 {
+        margin-bottom: var(--s2);
+      }
+
+      .head__where {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        font-size: 0.9rem;
+        color: var(--ink-soft);
+        margin: 0 0 var(--s1);
       }
 
       .head__meta {
         display: flex;
-        align-items: baseline;
-        gap: var(--s3);
-        margin-bottom: var(--s4);
+        flex-wrap: wrap;
+        gap: var(--s2) var(--s5);
+        list-style: none;
+        padding: 0;
+        margin: 0 0 var(--s5);
+        font-size: 0.92rem;
+        color: var(--ink-soft);
       }
 
-      .score {
-        font-size: 1.3rem;
-        font-weight: 600;
-        color: var(--pool);
+      .head__meta li {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
       }
 
-      .lede {
-        font-size: 1.02rem;
+      .head__meta strong {
+        color: var(--ink);
       }
+
+      .linklike {
+        background: none;
+        border: 0;
+        padding: 0;
+        color: var(--ink);
+        font-size: inherit;
+        text-decoration: underline;
+        text-underline-offset: 3px;
+        cursor: pointer;
+      }
+
+      .star {
+        color: var(--star);
+      }
+
+      /* --- Gallery ------------------------------------------------------------ */
 
       .gallery {
+        position: relative;
         display: grid;
-        grid-template-columns: 2fr 1fr;
+        grid-template-columns: 2fr 1fr 1fr;
+        grid-template-rows: repeat(2, minmax(0, 13rem));
         gap: var(--s2);
+        border-radius: var(--radius-xl);
+        overflow: hidden;
       }
 
-      .gallery img {
+      .gallery__img {
         width: 100%;
         height: 100%;
         object-fit: cover;
-        border-radius: var(--radius);
-        aspect-ratio: 4 / 3;
       }
 
-      .gallery img:first-child {
-        grid-row: span 2;
-        aspect-ratio: 1;
+      .gallery__img--0 {
+        grid-row: 1 / span 2;
       }
 
-      .section-title {
-        font-size: 1.2rem;
-        border-top: 2px solid var(--line);
-        padding-top: var(--s3);
+      .gallery__img--3 {
+        grid-column: 2 / span 2;
       }
 
-      .chips {
-        list-style: none;
-        display: flex;
-        flex-wrap: wrap;
-        gap: var(--s2);
-        padding: 0;
-        margin: 0 0 var(--s4);
+      .gallery--single {
+        grid-template-columns: 1fr;
+        grid-template-rows: minmax(0, 26rem);
       }
 
-      .chips--tight {
-        margin: var(--s2) 0;
+      .gallery--single .gallery__img--0 {
+        grid-row: auto;
       }
 
-      .span {
-        display: flex;
-        gap: var(--s3);
-        align-items: flex-end;
-        flex-wrap: wrap;
-        padding: var(--s4);
+      .gallery__plate {
+        height: 100%;
+      }
+
+      .gallery__count {
+        position: absolute;
+        right: var(--s4);
+        bottom: var(--s4);
+        padding: 0.3rem 0.75rem;
+        border-radius: var(--radius-pill);
+        background: rgb(16 16 30 / 70%);
+        color: #fff;
+        font-size: 0.8rem;
+        font-weight: 500;
+      }
+
+      /* --- Layout ------------------------------------------------------------ */
+
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 22rem;
+        gap: clamp(1.5rem, 4vw, 4rem);
+        align-items: start;
+        padding-top: var(--s6);
+      }
+
+      .tabs {
+        position: sticky;
+        top: var(--nav-h);
         background: var(--surface);
-        border: 1px solid var(--line);
-        border-radius: var(--radius-lg);
-        margin-bottom: var(--s3);
+        z-index: 5;
       }
 
-      .span .field {
+      .section {
+        padding-bottom: var(--s6);
+        margin-bottom: var(--s6);
+        border-bottom: 1px solid var(--line);
+        scroll-margin-top: calc(var(--nav-h) + 4rem);
+      }
+
+      .section:last-child {
+        border-bottom: 0;
+      }
+
+      .section h2 {
+        font-size: 1.35rem;
+      }
+
+      .section__head {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        flex-wrap: wrap;
+        gap: var(--s2) var(--s4);
+        margin-bottom: var(--s4);
+      }
+
+      .section__head h2,
+      .section__head p {
         margin: 0;
-        flex: 1 1 9rem;
       }
 
-      .span .narrow {
-        flex: 0 1 6rem;
+      .lede {
+        color: var(--ink-soft);
+        font-size: 1.02rem;
+        max-width: 62ch;
       }
+
+      .sub {
+        font-size: 1.05rem;
+        margin-top: var(--s5);
+      }
+
+      .offers {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+        gap: 0;
+      }
+
+      .offers li {
+        display: flex;
+        align-items: center;
+        gap: var(--s3);
+        padding: var(--s3) 0;
+        border-bottom: 1px solid var(--line);
+        color: var(--ink);
+        margin-right: var(--s5);
+      }
+
+      .offers app-icon {
+        color: var(--ink-soft);
+      }
+
+      /* --- Rooms --------------------------------------------------------------- */
 
       .rooms {
         list-style: none;
         padding: 0;
-        margin: var(--s4) 0 0;
+        margin: 0;
         display: grid;
         gap: var(--s3);
       }
@@ -297,17 +515,17 @@ import { StarsComponent } from '../shared/stars.component';
         display: flex;
         justify-content: space-between;
         gap: var(--s5);
-        padding: var(--s4);
+        padding: var(--s5);
         flex-wrap: wrap;
       }
 
       .room__main {
-        flex: 1 1 20rem;
+        flex: 1 1 18rem;
         min-width: 0;
       }
 
       .room h3 {
-        margin: 0 0 var(--s1);
+        margin: 0 0 var(--s2);
         display: flex;
         align-items: baseline;
         gap: var(--s2);
@@ -315,14 +533,18 @@ import { StarsComponent } from '../shared/stars.component';
       }
 
       .room__no {
-        font-size: 0.8rem;
+        font-size: 0.82rem;
         font-weight: 400;
         color: var(--ink-faint);
       }
 
+      .room .facts {
+        flex-wrap: wrap;
+      }
+
       .room__ribbon {
-        margin-top: var(--s3);
-        max-width: 22rem;
+        margin-top: var(--s4);
+        max-width: 20rem;
       }
 
       .room__book {
@@ -330,62 +552,246 @@ import { StarsComponent } from '../shared/stars.component';
         flex-direction: column;
         align-items: flex-end;
         justify-content: center;
-        gap: var(--s2);
+        gap: var(--s1);
         text-align: right;
       }
 
-      .room__total {
+      .room__book .price {
         margin: 0;
-        display: flex;
-        flex-direction: column;
-        line-height: 1.2;
       }
 
-      .room__total .num {
-        font-size: 1.3rem;
-        font-weight: 600;
+      .room__total {
+        margin: 0 0 var(--s2);
+        font-size: 0.84rem;
+        color: var(--ink-soft);
       }
 
-      .small {
-        font-size: 0.85rem;
+      /* --- Reviews ------------------------------------------------------------- */
+
+      .score {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
       }
 
       .reviews {
         list-style: none;
         padding: 0;
-        margin: var(--s4) 0 0;
+        margin: 0;
         display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
         gap: var(--s4);
       }
 
       .review {
-        padding-bottom: var(--s4);
-        border-bottom: 1px solid var(--line);
-      }
-
-      .review__head {
+        padding: var(--s5);
         display: flex;
-        align-items: baseline;
+        flex-direction: column;
         gap: var(--s3);
-        margin-bottom: var(--s2);
-        flex-wrap: wrap;
       }
 
-      .review__rating {
-        color: var(--lamp);
-        font-weight: 600;
+      .review__stars {
+        display: inline-flex;
+        gap: 2px;
+        color: var(--star);
+      }
+
+      .review__stars .dim {
+        color: var(--line-strong);
+      }
+
+      .review__text {
+        margin: 0;
+        font-size: 0.95rem;
+      }
+
+      .review__by {
+        display: flex;
+        align-items: center;
+        gap: var(--s3);
+        margin-top: auto;
+        font-size: 0.88rem;
+      }
+
+      .review__by > span:last-child {
+        display: flex;
+        flex-direction: column;
+        line-height: 1.35;
+      }
+
+      .review__avatar {
+        width: 2.2rem;
+        height: 2.2rem;
+        border-radius: 50%;
+        background: var(--pool-soft);
+        color: var(--pool-deep);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
       }
 
       .response {
-        margin: var(--s3) 0 0;
+        margin: 0;
         padding: var(--s3);
-        border-left: 3px solid var(--pool);
-        background: var(--pool-soft);
-        font-size: 0.92rem;
+        border-radius: var(--radius);
+        background: var(--band);
+        font-size: 0.88rem;
       }
 
-      .response .eyebrow {
+      .response strong {
+        display: block;
         margin-bottom: var(--s1);
+      }
+
+      /* --- Location ------------------------------------------------------------ */
+
+      .where {
+        display: flex;
+        align-items: center;
+        gap: var(--s4);
+        padding: var(--s4) var(--s5);
+        flex-wrap: wrap;
+      }
+
+      .where > app-icon {
+        color: var(--pool);
+      }
+
+      .where > div {
+        flex: 1 1 12rem;
+      }
+
+      .where p {
+        margin: 0;
+        font-size: 0.9rem;
+      }
+
+      .contact {
+        list-style: none;
+        padding: 0;
+        margin: var(--s4) 0 0;
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--s2) var(--s5);
+        font-size: 0.9rem;
+        color: var(--ink-soft);
+      }
+
+      .contact li {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+      }
+
+      /* --- Booking card --------------------------------------------------------- */
+
+      .booking {
+        position: sticky;
+        top: calc(var(--nav-h) + var(--s4));
+        padding: var(--s5);
+        box-shadow: var(--shadow-lift);
+        border-color: transparent;
+      }
+
+      .booking__from {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: var(--s3);
+        margin-bottom: var(--s4);
+        font-size: 0.86rem;
+      }
+
+      .booking__from .price__night {
+        font-size: 1.45rem;
+      }
+
+      .booking__grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        border: 1px solid var(--line-strong);
+        border-radius: var(--radius);
+        overflow: hidden;
+        margin-bottom: var(--s4);
+      }
+
+      .cell {
+        padding: 0.6rem 0.8rem;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+
+      .cell:nth-child(odd) {
+        border-right: 1px solid var(--line-strong);
+      }
+
+      .cell:nth-child(-n + 2) {
+        border-bottom: 1px solid var(--line-strong);
+      }
+
+      .cell:focus-within {
+        background: var(--band);
+      }
+
+      .cell label {
+        font-size: 0.74rem;
+        font-weight: 600;
+        color: var(--ink-soft);
+      }
+
+      .cell input {
+        border: 0;
+        padding: 0;
+        background: transparent;
+        font-size: 0.94rem;
+        min-width: 0;
+        width: 100%;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .cell input:focus {
+        outline: none;
+      }
+
+      .booking__note {
+        margin: var(--s4) 0 0;
+        font-size: 0.85rem;
+        text-align: center;
+      }
+
+      @media (max-width: 960px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+
+        .booking {
+          position: static;
+          order: -1;
+        }
+      }
+
+      @media (max-width: 700px) {
+        .gallery {
+          grid-template-columns: 1fr 1fr;
+          grid-template-rows: 15rem 7rem;
+          border-radius: var(--radius-lg);
+        }
+
+        .gallery__img--0 {
+          grid-row: auto;
+          grid-column: 1 / -1;
+        }
+
+        .gallery__img--3 {
+          display: none;
+        }
+
+        .room__book {
+          align-items: flex-start;
+          text-align: left;
+        }
       }
     `,
   ],
@@ -409,9 +815,25 @@ export class HotelComponent implements OnInit {
   protected readonly loading = signal(true);
   protected readonly checkingAvailability = signal(false);
 
-  protected readonly nights = computed(() => nightsBetween(this.checkIn, this.checkOut));
+  /** Recomputed on each availability check, so it reflects the dates last asked about. */
+  protected readonly nights = signal(nightsBetween(this.checkIn, this.checkOut));
 
-  protected readonly formatDate = formatDate;
+  protected readonly fromPrice = computed(() => {
+    const rooms = this.hotel()?.rooms ?? [];
+    return rooms.length ? Math.min(...rooms.map((r) => r.adultPrice)) : null;
+  });
+
+  protected readonly tabs = [
+    { id: 'overview', label: 'Overview' },
+    { id: 'rooms', label: 'Rooms' },
+    { id: 'reviews', label: 'Reviews' },
+    { id: 'location', label: 'Location' },
+  ];
+  protected readonly activeTab = signal('overview');
+
+  protected readonly fmt = formatDate;
+  protected readonly icon = amenityIcon;
+  protected readonly price = formatPrice;
 
   private hotelId = '';
 
@@ -444,6 +866,12 @@ export class HotelComponent implements OnInit {
     });
   }
 
+  /** In-page links scroll rather than navigate: a bare #fragment resolves against the base href. */
+  protected jump(id: string): void {
+    this.activeTab.set(id);
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   protected minOut(): string {
     return addDays(this.checkIn, 1);
   }
@@ -453,6 +881,7 @@ export class HotelComponent implements OnInit {
       this.checkOut = addDays(this.checkIn, 1);
     }
 
+    this.nights.set(nightsBetween(this.checkIn, this.checkOut));
     this.checkingAvailability.set(true);
 
     this.api

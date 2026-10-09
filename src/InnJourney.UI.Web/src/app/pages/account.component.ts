@@ -6,20 +6,25 @@ import { AuthService } from '../core/auth.service';
 import { formatDate, formatMoney } from '../core/dates';
 import { Reservation } from '../core/models';
 import { ToastService } from '../core/toast.service';
+import { IconComponent } from '../shared/icon.component';
 import { RibbonComponent } from '../shared/ribbon.component';
 import { StatusComponent } from '../shared/status.component';
 
 @Component({
   selector: 'app-account',
   standalone: true,
-  imports: [RouterLink, RibbonComponent, StatusComponent],
+  imports: [RouterLink, IconComponent, RibbonComponent, StatusComponent],
   template: `
     <div class="page wrap">
-      <header class="head">
+      <header class="page-head">
         <div>
-          <p class="eyebrow">Signed in as {{ auth.user()?.email }}</p>
           <h1>My stays</h1>
+          <p class="muted">Signed in as {{ auth.user()?.email }}</p>
         </div>
+        <a routerLink="/search" class="btn btn--pill">
+          <app-icon name="search" [size]="16" [stroke]="2" />
+          Find a stay
+        </a>
       </header>
 
       <div class="tabs" role="tablist">
@@ -63,6 +68,12 @@ import { StatusComponent } from '../shared/status.component';
         <ul class="list">
           @for (r of reservations(); track r.id) {
             <li class="card item">
+              <a class="item__photo" [routerLink]="['/reservations', r.id]" tabindex="-1" aria-hidden="true">
+                @if (photos()[r.hotelId]; as photo) {
+                  <img [src]="photo" alt="" loading="lazy" />
+                }
+              </a>
+
               <div class="item__main">
                 <div class="item__head">
                   <h2>
@@ -71,11 +82,12 @@ import { StatusComponent } from '../shared/status.component';
                   <app-status [value]="r.status" />
                 </div>
 
-                <p class="muted small num">
-                  {{ r.reference }} &middot; room {{ r.roomNumber }} &middot;
-                  {{ fmt(r.checkIn) }} &rarr; {{ fmt(r.checkOut) }} &middot;
-                  {{ r.nights }} night{{ r.nights === 1 ? '' : 's' }}
-                </p>
+                <ul class="facts">
+                  <li><app-icon name="calendar" [size]="16" /> {{ fmt(r.checkIn) }} &ndash; {{ fmt(r.checkOut) }}</li>
+                  <li><app-icon name="moon" [size]="16" /> {{ r.nights }} night{{ r.nights === 1 ? '' : 's' }}</li>
+                  <li><app-icon name="bed" [size]="16" /> Room {{ r.roomNumber }}</li>
+                  <li class="code">{{ r.reference }}</li>
+                </ul>
 
                 <app-ribbon
                   class="item__ribbon"
@@ -89,7 +101,7 @@ import { StatusComponent } from '../shared/status.component';
               </div>
 
               <div class="item__side">
-                <span class="num total">{{ money(r.totalPrice) }}</span>
+                <span class="total num">{{ money(r.totalPrice) }}</span>
 
                 @if (r.canReview) {
                   <a class="btn btn--sm" [routerLink]="['/reservations', r.id]">Leave a review</a>
@@ -108,33 +120,7 @@ import { StatusComponent } from '../shared/status.component';
   styles: [
     `
       .wrap {
-        padding: var(--s6) var(--s5) var(--s8);
-      }
-
-      .head {
-        margin-bottom: var(--s4);
-      }
-
-      .tabs {
-        display: flex;
-        gap: var(--s4);
-        border-bottom: 1px solid var(--line);
-        margin-bottom: var(--s5);
-      }
-
-      .tabs button {
-        background: none;
-        border: 0;
-        border-bottom: 2px solid transparent;
-        padding: var(--s2) 0;
-        cursor: pointer;
-        color: var(--ink-soft);
-        font-size: 0.95rem;
-      }
-
-      .tabs .on {
-        color: var(--ink);
-        border-bottom-color: var(--lamp);
+        padding-bottom: var(--s8);
       }
 
       .list {
@@ -142,20 +128,30 @@ import { StatusComponent } from '../shared/status.component';
         padding: 0;
         margin: 0;
         display: grid;
-        gap: var(--s3);
+        gap: var(--s4);
       }
 
       .item {
-        display: flex;
+        display: grid;
+        grid-template-columns: 11rem minmax(0, 1fr) auto;
         gap: var(--s5);
-        justify-content: space-between;
-        padding: var(--s4);
-        flex-wrap: wrap;
+        align-items: center;
+        padding: 0.6rem var(--s5) 0.6rem 0.6rem;
       }
 
-      .item__main {
-        flex: 1 1 22rem;
-        min-width: 0;
+      .item__photo {
+        display: block;
+        align-self: stretch;
+        min-height: 7.5rem;
+        border-radius: var(--radius);
+        overflow: hidden;
+        background: linear-gradient(150deg, #2b2457, #6941e5);
+      }
+
+      .item__photo img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
       }
 
       .item__head {
@@ -163,11 +159,12 @@ import { StatusComponent } from '../shared/status.component';
         align-items: center;
         gap: var(--s3);
         flex-wrap: wrap;
+        margin-bottom: var(--s2);
       }
 
       .item h2 {
         margin: 0;
-        font-size: 1.05rem;
+        font-size: 1.1rem;
       }
 
       .item h2 a {
@@ -176,10 +173,21 @@ import { StatusComponent } from '../shared/status.component';
       }
 
       .item h2 a:hover {
-        text-decoration: underline;
+        color: var(--pool);
+      }
+
+      .facts {
+        flex-wrap: wrap;
+        gap: var(--s2) var(--s4);
+      }
+
+      .facts .code {
+        font-size: 0.8rem;
+        color: var(--ink-faint);
       }
 
       .item__ribbon {
+        display: block;
         margin-top: var(--s3);
         max-width: 20rem;
       }
@@ -194,12 +202,30 @@ import { StatusComponent } from '../shared/status.component';
 
       .total {
         font-size: 1.15rem;
-        font-weight: 600;
+        font-weight: 700;
       }
 
-      .small {
-        font-size: 0.85rem;
-        margin: var(--s1) 0 0;
+      @media (max-width: 760px) {
+        .item {
+          grid-template-columns: 1fr;
+          padding: 0.6rem 0.6rem var(--s4);
+        }
+
+        .item__photo {
+          aspect-ratio: 16 / 7;
+          min-height: 0;
+        }
+
+        .item__main,
+        .item__side {
+          padding: 0 0.4rem;
+        }
+
+        .item__side {
+          flex-direction: row;
+          justify-content: space-between;
+          align-items: center;
+        }
       }
     `,
   ],
@@ -213,6 +239,9 @@ export class AccountComponent implements OnInit {
   protected readonly reservations = signal<Reservation[]>([]);
   protected readonly loading = signal(true);
   protected readonly tab = signal<'upcoming' | 'past'>('upcoming');
+
+  /** Cover photographs by hotel id, fetched once per hotel. */
+  protected readonly photos = signal<Record<string, string | null>>({});
 
   protected readonly fmt = formatDate;
 
@@ -234,12 +263,31 @@ export class AccountComponent implements OnInit {
       next: (page) => {
         this.reservations.set(page.items);
         this.loading.set(false);
+        this.loadPhotos(page.items);
       },
       error: (err) => {
         this.toasts.fromError(err, 'Could not load your stays.');
         this.loading.set(false);
       },
     });
+  }
+
+  private loadPhotos(reservations: Reservation[]): void {
+    const missing = [...new Set(reservations.map((r) => r.hotelId))].filter(
+      (id) => !(id in this.photos())
+    );
+
+    for (const id of missing) {
+      this.photos.update((all) => ({ ...all, [id]: null }));
+
+      this.api.getHotel(id).subscribe({
+        next: (h) => {
+          const url = (h.images.find((i) => i.isCover) ?? h.images[0])?.url ?? null;
+          this.photos.update((all) => ({ ...all, [id]: url }));
+        },
+        error: () => undefined,
+      });
+    }
   }
 
   protected money(value: number): string {

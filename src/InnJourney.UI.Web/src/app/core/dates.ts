@@ -80,6 +80,13 @@ export function formatMoney(amount: number | null | undefined): string {
   });
 }
 
+/** A price shown at a glance, on a card or a headline: whole units only. */
+export function formatPrice(amount: number | null | undefined): string {
+  if (amount === null || amount === undefined) return '—';
+
+  return amount.toLocaleString(undefined, { maximumFractionDigits: 0 });
+}
+
 export function weekdayInitial(iso: string): string {
   return parseIsoDate(iso).toLocaleDateString(undefined, { weekday: 'narrow' });
 }

@@ -1,324 +1,455 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 
 import { ApiService } from '../core/api.service';
-import { addDays, formatMoney, nightsBetween } from '../core/dates';
+import { addDays, nightsBetween } from '../core/dates';
 import { Amenity, HotelSummary, PagedResult } from '../core/models';
 import { ToastService } from '../core/toast.service';
-import { PlateComponent } from '../shared/plate.component';
+import { IconComponent, amenityIcon } from '../shared/icon.component';
+import { SearchBarComponent, StaySearch } from '../shared/search-bar.component';
+import { StayCardComponent } from '../shared/stay-card.component';
+
+type PageMark = number | 'gap';
 
 @Component({
   selector: 'app-search',
   standalone: true,
-  imports: [FormsModule, RouterLink, PlateComponent],
+  imports: [FormsModule, IconComponent, SearchBarComponent, StayCardComponent],
   template: `
-    <div class="page layout">
-      <aside class="filters" aria-label="Filters">
-        <h2 class="filters__title">Refine</h2>
+    <div class="band">
+      <div class="page--wide band__inner">
+        <app-search-bar [initial]="barStart()" cta="Update search" (searched)="research($event)" />
+      </div>
+    </div>
 
-        <div class="field">
-          <label for="f-city">City</label>
-          <input id="f-city" class="input" [(ngModel)]="city" placeholder="Anywhere" />
-        </div>
-
-        <div class="row row--dates">
-          <div class="field">
-            <label for="f-in">Check in</label>
-            <input id="f-in" class="input input--num" type="date" [(ngModel)]="checkIn" />
-          </div>
-          <div class="field">
-            <label for="f-out">Check out</label>
-            <input id="f-out" class="input input--num" type="date" [(ngModel)]="checkOut" />
-          </div>
-        </div>
-
-        <div class="row">
-          <div class="field">
-            <label for="f-guests">Guests</label>
-            <input
-              id="f-guests"
-              class="input input--num"
-              type="number"
-              min="1"
-              max="20"
-              [(ngModel)]="guests"
-            />
-          </div>
-          <div class="field">
-            <label for="f-stars">Min stars</label>
-            <select id="f-stars" class="input" [(ngModel)]="minStars">
-              <option [ngValue]="null">Any</option>
-              @for (s of [1, 2, 3, 4, 5]; track s) {
-                <option [ngValue]="s">{{ s }}+</option>
-              }
-            </select>
-          </div>
-        </div>
-
-        <div class="row">
-          <div class="field">
-            <label for="f-min">Min price</label>
-            <input id="f-min" class="input input--num" type="number" min="0" [(ngModel)]="minPrice" />
-          </div>
-          <div class="field">
-            <label for="f-max">Max price</label>
-            <input id="f-max" class="input input--num" type="number" min="0" [(ngModel)]="maxPrice" />
-          </div>
-        </div>
-
-        @if (amenities().length) {
-          <fieldset class="amenities">
-            <legend>Facilities</legend>
-            @for (a of amenities(); track a.id) {
-              <label class="check">
-                <input
-                  type="checkbox"
-                  [checked]="selectedAmenities().has(a.id)"
-                  (change)="toggleAmenity(a.id)"
-                />
-                {{ a.name }}
-              </label>
+    <div class="page--wide">
+      <header class="results-head">
+        <h1 class="results-head__title" aria-live="polite">
+          @if (loading()) {
+            Searching&hellip;
+          } @else {
+            Found {{ total() }} {{ total() === 1 ? 'stay' : 'stays' }}
+            @if (city) {
+              in <strong>{{ city }}</strong>
             }
-          </fieldset>
-        }
-
-        <button class="btn" type="button" (click)="apply()">Apply</button>
-        <button class="btn btn--ghost" type="button" (click)="reset()">Clear</button>
-      </aside>
-
-      <section class="results">
-        <header class="results__head">
-          <div>
-            <h1 class="results__title">
-              @if (loading()) {
-                Searching&hellip;
-              } @else {
-                {{ total() }} {{ total() === 1 ? 'property' : 'properties' }}
-              }
-            </h1>
             @if (nights() > 0) {
-              <p class="muted num">
-                {{ nights() }} night{{ nights() === 1 ? '' : 's' }} &middot; {{ guests }} guest{{
-                  guests === 1 ? '' : 's'
-                }}
-              </p>
+              <span class="results-head__span">
+                for {{ nights() }} night{{ nights() === 1 ? '' : 's' }}
+              </span>
             }
-          </div>
+          }
+        </h1>
 
-          <div class="field field--inline">
-            <label for="sort">Sort</label>
-            <select id="sort" class="input" [(ngModel)]="sort" (ngModelChange)="apply()">
+        <div class="results-head__tools">
+          <label class="sort">
+            <app-icon name="sort" [size]="16" />
+            <span class="visually-hidden">Sort by</span>
+            <select [(ngModel)]="sort" (ngModelChange)="apply()">
               <option value="">Best rated</option>
-              <option value="price_asc">Price, low to high</option>
-              <option value="price_desc">Price, high to low</option>
-              <option value="stars_desc">Stars</option>
+              <option value="price_asc">Lowest price</option>
+              <option value="price_desc">Highest price</option>
+              <option value="stars_desc">Most stars</option>
               <option value="name_asc">Name</option>
             </select>
-          </div>
-        </header>
+            <app-icon name="chevron-down" [size]="16" />
+          </label>
 
-        @if (loading()) {
-          <div class="grid-cards">
-            @for (i of [1, 2, 3, 4]; track i) {
-              <div class="card skeleton-card">
-                <div class="skeleton" style="height: 9rem"></div>
-                <div class="skeleton" style="height: 1.2rem; margin: 1rem"></div>
-                <div class="skeleton" style="height: 0.9rem; margin: 0 1rem 1rem; width: 60%"></div>
-              </div>
+          <button
+            type="button"
+            class="filters-toggle"
+            [attr.aria-expanded]="filtersOpen()"
+            aria-controls="filters"
+            (click)="filtersOpen.set(!filtersOpen())"
+          >
+            <app-icon name="sliders" [size]="16" />
+            Filters
+            @if (activeFilters() > 0) {
+              ({{ activeFilters() }})
             }
-          </div>
-        } @else if (hotels().length === 0) {
-          <div class="empty">
-            <h3>Nothing matches those nights</h3>
-            <p>Try a wider date range, fewer facilities, or a different city.</p>
-            <button class="btn btn--ghost" type="button" (click)="reset()">Clear filters</button>
-          </div>
-        } @else {
-          <div class="grid-cards">
-            @for (hotel of hotels(); track hotel.id) {
-              <article class="card card--stack">
-                <a class="plate-link" [routerLink]="['/hotels', hotel.id]">
-                  <app-plate
-                    [seed]="hotel.id"
-                    [src]="hotel.coverImageUrl"
-                    [alt]="hotel.name"
-                    [label]="hotel.name"
-                    [from]="plateWindow()?.from ?? null"
-                    [to]="plateWindow()?.to ?? null"
-                    [selectedFrom]="plateWindow()?.selectedFrom ?? null"
-                    [selectedTo]="plateWindow()?.selectedTo ?? null"
-                  >
-                    <span class="chip">{{ hotel.stars }}&#9733;</span>
-                    @if (hotel.reviewCount > 0) {
-                      <span class="chip">
-                        {{ hotel.averageRating.toFixed(1) }} &middot; {{ hotel.reviewCount }}
-                        review{{ hotel.reviewCount === 1 ? '' : 's' }}
-                      </span>
-                    }
-                  </app-plate>
-                </a>
+          </button>
+        </div>
+      </header>
 
-                <div class="card__body">
-                  <h3 class="card__title">
-                    <a [routerLink]="['/hotels', hotel.id]">{{ hotel.name }}</a>
-                  </h3>
-
-                  <p class="where">
-                    <span class="where__pin" aria-hidden="true"></span>
-                    {{ hotel.address.city }}, {{ hotel.address.country }}
-                  </p>
-                </div>
-
-                <div class="price-row">
-                  @if (hotel.fromPrice !== null) {
-                    <span class="price-row__amount">{{ money(hotel.fromPrice) }}</span>
-                    <span class="price-row__unit">per night</span>
-                  }
-
-                  <a
-                    class="btn btn--sm btn--pill price-row__go"
-                    [routerLink]="['/hotels', hotel.id]"
-                    [queryParams]="spanParams()"
-                  >
-                    See rooms
-                  </a>
-                </div>
-              </article>
-            }
-          </div>
-
-          @if (totalPages() > 1) {
-            <nav class="pager" aria-label="Pagination">
-              <button class="btn btn--ghost btn--sm" [disabled]="page() <= 1" (click)="goTo(page() - 1)">
-                Previous
-              </button>
-              <span class="num">Page {{ page() }} of {{ totalPages() }}</span>
-              <button
-                class="btn btn--ghost btn--sm"
-                [disabled]="page() >= totalPages()"
-                (click)="goTo(page() + 1)"
-              >
-                Next
-              </button>
-            </nav>
+      @if (amenities().length) {
+        <div class="chip-row" role="group" aria-label="Facilities">
+          <button
+            type="button"
+            class="filter-chip"
+            [class.is-on]="selectedAmenities().size === 0"
+            (click)="clearAmenities()"
+          >
+            Any
+          </button>
+          @for (a of amenities(); track a.id) {
+            <button
+              type="button"
+              class="filter-chip"
+              [class.is-on]="selectedAmenities().has(a.id)"
+              [attr.aria-pressed]="selectedAmenities().has(a.id)"
+              (click)="toggleAmenity(a.id)"
+            >
+              <app-icon [name]="icon(a.name)" [size]="17" />
+              {{ a.name }}
+            </button>
           }
-        }
-      </section>
+        </div>
+      }
+
+      <div class="layout">
+        <section class="results" aria-label="Results">
+          @if (loading()) {
+            <div class="grid">
+              @for (i of [1, 2, 3, 4]; track i) {
+                <div class="stay">
+                  <div class="skeleton" style="aspect-ratio: 16 / 10.5"></div>
+                  <div class="skeleton" style="height: 1.1rem; margin: 1rem 0.4rem 0.5rem; width: 60%"></div>
+                  <div class="skeleton" style="height: 0.9rem; margin: 0 0.4rem 0.6rem; width: 80%"></div>
+                </div>
+              }
+            </div>
+          } @else if (hotels().length === 0) {
+            <div class="empty">
+              <h3>Nothing matches those nights</h3>
+              <p>Try a wider date range, fewer facilities, or a different city.</p>
+              <button class="btn btn--ghost" type="button" (click)="reset()">Clear all filters</button>
+            </div>
+          } @else {
+            <div class="grid">
+              @for (hotel of hotels(); track hotel.id) {
+                <app-stay-card
+                  [hotel]="hotel"
+                  [nights]="nights()"
+                  [window]="plateWindow()"
+                  [params]="spanParams()"
+                />
+              }
+            </div>
+
+            @if (totalPages() > 1) {
+              <nav class="pager" aria-label="Pages">
+                <button
+                  type="button"
+                  class="pager__step"
+                  [disabled]="page() <= 1"
+                  (click)="apply(page() - 1)"
+                >
+                  <app-icon name="chevron-left" [size]="16" />
+                  <span class="visually-hidden">Previous page</span>
+                </button>
+
+                @for (mark of pageMarks(); track $index) {
+                  @if (mark === 'gap') {
+                    <span class="pager__gap" aria-hidden="true">&hellip;</span>
+                  } @else {
+                    <button
+                      type="button"
+                      class="pager__n"
+                      [class.is-on]="mark === page()"
+                      [attr.aria-current]="mark === page() ? 'page' : null"
+                      (click)="apply(mark)"
+                    >
+                      {{ mark }}
+                    </button>
+                  }
+                }
+
+                <button
+                  type="button"
+                  class="pager__step"
+                  [disabled]="page() >= totalPages()"
+                  (click)="apply(page() + 1)"
+                >
+                  <app-icon name="chevron-right" [size]="16" />
+                  <span class="visually-hidden">Next page</span>
+                </button>
+              </nav>
+            }
+          }
+        </section>
+
+        <aside id="filters" class="filters" [class.is-open]="filtersOpen()" aria-label="Filters">
+          <div class="filters__head">
+            <h2>Filters</h2>
+            @if (activeFilters() > 0) {
+              <button type="button" class="linklike" (click)="reset()">
+                Clear all ({{ activeFilters() }})
+              </button>
+            }
+          </div>
+
+          <form class="filters__group" (ngSubmit)="apply()">
+            <h3>Price per night</h3>
+            <div class="price-pair">
+              <div class="field">
+                <label for="f-min">Minimum</label>
+                <input id="f-min" name="min" class="input input--num" type="number" min="0" placeholder="0" [(ngModel)]="minPrice" />
+              </div>
+              <div class="field">
+                <label for="f-max">Maximum</label>
+                <input id="f-max" name="max" class="input input--num" type="number" min="0" placeholder="Any" [(ngModel)]="maxPrice" />
+              </div>
+            </div>
+            <button class="btn btn--soft btn--sm btn--block" type="submit">Apply price</button>
+          </form>
+
+          <div class="filters__group">
+            <h3 id="stars-label">Hotel class</h3>
+            <div class="choices" role="group" aria-labelledby="stars-label">
+              <button type="button" class="choice" [class.is-on]="minStars === null" (click)="setStars(null)">Any</button>
+              @for (s of [3, 4, 5]; track s) {
+                <button type="button" class="choice" [class.is-on]="minStars === s" (click)="setStars(s)">
+                  {{ s }}+
+                </button>
+              }
+            </div>
+          </div>
+
+          <div class="filters__group">
+            <h3 id="rating-label">Guest rating</h3>
+            <div class="choices" role="group" aria-labelledby="rating-label">
+              <button type="button" class="choice" [class.is-on]="minRating === null" (click)="setRating(null)">Any</button>
+              @for (r of [3, 4, 4.5]; track r) {
+                <button type="button" class="choice" [class.is-on]="minRating === r" (click)="setRating(r)">
+                  {{ r }}+
+                </button>
+              }
+            </div>
+          </div>
+        </aside>
+      </div>
     </div>
   `,
   styles: [
     `
-      .layout {
-        display: grid;
-        grid-template-columns: 17rem 1fr;
-        gap: var(--s6);
+      .band__inner {
         padding-top: var(--s6);
-        align-items: start;
+        padding-bottom: var(--s6);
       }
 
-      @media (max-width: 860px) {
-        .layout {
-          grid-template-columns: 1fr;
-        }
+      .results-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: var(--s4);
+        flex-wrap: wrap;
+        padding: var(--s6) 0 var(--s4);
+        border-bottom: 1px solid var(--line);
       }
+
+      .results-head__title {
+        font-size: clamp(1.15rem, 1rem + 0.6vw, 1.4rem);
+        font-weight: 400;
+        letter-spacing: -0.01em;
+        margin: 0;
+      }
+
+      .results-head__title strong {
+        font-weight: 600;
+      }
+
+      .results-head__span {
+        color: var(--ink-soft);
+      }
+
+      .results-head__tools {
+        display: flex;
+        gap: var(--s2);
+      }
+
+      .sort,
+      .filters-toggle {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        height: 2.6rem;
+        padding: 0 0.95rem;
+        border: 1px solid var(--line-strong);
+        border-radius: var(--radius-pill);
+        background: var(--surface);
+        color: var(--ink);
+        font-size: 0.9rem;
+        font-weight: 500;
+        cursor: pointer;
+      }
+
+      .sort:focus-within {
+        border-color: var(--pool);
+      }
+
+      .sort select {
+        appearance: none;
+        border: 0;
+        background: transparent;
+        font-weight: 500;
+        cursor: pointer;
+        padding-right: 0.2rem;
+      }
+
+      .sort select:focus {
+        outline: none;
+      }
+
+      .filters-toggle {
+        display: none;
+      }
+
+      .chip-row {
+        display: flex;
+        gap: var(--s2);
+        overflow-x: auto;
+        padding: var(--s4) 0;
+        scrollbar-width: none;
+      }
+
+      .chip-row::-webkit-scrollbar {
+        display: none;
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 20rem;
+        gap: var(--s5);
+        align-items: start;
+        padding-top: var(--s2);
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+        gap: var(--s5);
+      }
+
+      /* --- Filters ------------------------------------------------------------ */
 
       .filters {
         position: sticky;
-        top: 5rem;
-        padding: var(--s4);
+        top: calc(var(--nav-h) + var(--s4));
+        padding: var(--s5);
         border: 1px solid var(--line);
         border-radius: var(--radius-lg);
         background: var(--surface);
       }
 
-      .filters__title {
-        font-size: 0.8rem;
-        font-family: var(--mono);
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-        color: var(--ink-faint);
-        margin-bottom: var(--s4);
+      .filters__head {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: var(--s3);
+        padding-bottom: var(--s4);
+        border-bottom: 1px solid var(--line);
       }
 
-      .row {
+      .filters__head h2 {
+        font-size: 1.1rem;
+        margin: 0;
+      }
+
+      .filters__group {
+        padding: var(--s5) 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .filters__group:last-child {
+        border-bottom: 0;
+        padding-bottom: 0;
+      }
+
+      .filters__group h3 {
+        font-size: 0.95rem;
+        font-weight: 600;
+        margin-bottom: var(--s3);
+      }
+
+      .price-pair {
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: var(--s3);
       }
 
-      /* Dates carry their own picker chrome, so they get the full column. */
-      .row--dates {
-        grid-template-columns: 1fr;
+      .price-pair .field {
+        margin-bottom: var(--s3);
       }
 
-      .amenities {
+      .linklike {
+        background: none;
         border: 0;
-        border-top: 1px solid var(--line);
-        padding: var(--s3) 0 0;
-        margin: 0 0 var(--s4);
-      }
-
-      .amenities legend {
-        font-size: 0.8rem;
-        font-weight: 600;
-        color: var(--ink-soft);
-        padding: 0 var(--s2) 0 0;
-      }
-
-      .check {
-        display: flex;
-        align-items: center;
-        gap: var(--s2);
+        padding: 0;
+        color: var(--ink);
         font-size: 0.88rem;
-        padding: 0.15rem 0;
+        font-weight: 500;
+        cursor: pointer;
+        text-decoration: underline;
+        text-underline-offset: 3px;
       }
 
-      .filters .btn {
-        width: 100%;
-        margin-top: var(--s2);
-      }
-
-      .results__head {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-end;
-        gap: var(--s4);
-        flex-wrap: wrap;
-        margin-bottom: var(--s5);
-      }
-
-      .results__title {
-        font-size: 1.6rem;
-        margin: 0;
-      }
-
-      .field--inline {
-        margin: 0;
-        min-width: 12rem;
-      }
-
-      .plate-link {
-        display: block;
-      }
-
-      /* The price row ends the card, so the action lives in it rather than in a
-         row of its own. */
-      .price-row__go {
-        margin-left: auto;
-      }
+      /* --- Pager -------------------------------------------------------------- */
 
       .pager {
         display: flex;
         align-items: center;
-        justify-content: center;
-        gap: var(--s4);
+        gap: var(--s1);
         margin-top: var(--s6);
-        font-size: 0.85rem;
+        flex-wrap: wrap;
       }
 
-      .skeleton-card {
-        overflow: hidden;
+      .pager__n,
+      .pager__step {
+        min-width: 2.4rem;
+        height: 2.4rem;
+        border-radius: 50%;
+        border: 0;
+        background: transparent;
+        color: var(--ink);
+        font-size: 0.9rem;
+        font-weight: 500;
+        font-variant-numeric: tabular-nums;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+      }
+
+      .pager__n:hover,
+      .pager__step:hover:not(:disabled) {
+        background: var(--band);
+      }
+
+      .pager__n.is-on {
+        background: var(--surface-sunk);
+        font-weight: 600;
+      }
+
+      .pager__step:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+      }
+
+      .pager__gap {
+        min-width: 2rem;
+        text-align: center;
+        color: var(--ink-faint);
+      }
+
+      @media (max-width: 960px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+
+        .filters-toggle {
+          display: inline-flex;
+        }
+
+        .filters {
+          display: none;
+          position: static;
+          order: -1;
+        }
+
+        .filters.is-open {
+          display: block;
+        }
       }
     `,
   ],
@@ -334,9 +465,12 @@ export class SearchComponent implements OnInit {
   protected checkOut = '';
   protected guests = 2;
   protected minStars: number | null = null;
+  protected minRating: number | null = null;
   protected minPrice: number | null = null;
   protected maxPrice: number | null = null;
   protected sort = '';
+
+  protected readonly icon = amenityIcon;
 
   protected readonly selectedAmenities = signal(new Set<string>());
   protected readonly amenities = signal<Amenity[]>([]);
@@ -345,6 +479,11 @@ export class SearchComponent implements OnInit {
   protected readonly total = signal(0);
   protected readonly totalPages = signal(1);
   protected readonly page = signal(1);
+  protected readonly filtersOpen = signal(false);
+  protected readonly activeFilters = signal(0);
+
+  /** What the search bar shows: the question the current results answer. */
+  protected readonly barStart = signal<Partial<StaySearch>>({});
 
   /** The span actually used for the current results, for the card ribbons. */
   protected readonly appliedSpan = signal<{ from: string; to: string } | null>(null);
@@ -372,6 +511,23 @@ export class SearchComponent implements OnInit {
     };
   });
 
+  /** Page numbers to show: the ends, and two either side of the current page. */
+  protected readonly pageMarks = computed<PageMark[]>(() => {
+    const last = this.totalPages();
+    const current = this.page();
+    const marks: PageMark[] = [];
+
+    for (let n = 1; n <= last; n++) {
+      if (n === 1 || n === last || Math.abs(n - current) <= 1) {
+        marks.push(n);
+      } else if (marks[marks.length - 1] !== 'gap') {
+        marks.push('gap');
+      }
+    }
+
+    return marks;
+  });
+
   ngOnInit(): void {
     this.api.amenities('Hotel').subscribe({
       next: (list) => this.amenities.set(list),
@@ -379,16 +535,31 @@ export class SearchComponent implements OnInit {
     });
 
     this.route.queryParamMap.subscribe((params) => {
+      const number = (key: string) => (params.get(key) ? Number(params.get(key)) : null);
+
       this.city = params.get('city') ?? '';
       this.checkIn = params.get('checkIn') ?? '';
       this.checkOut = params.get('checkOut') ?? '';
       this.guests = Number(params.get('guests') ?? 2);
-      this.minStars = params.get('minStars') ? Number(params.get('minStars')) : null;
-      this.minPrice = params.get('minPrice') ? Number(params.get('minPrice')) : null;
-      this.maxPrice = params.get('maxPrice') ? Number(params.get('maxPrice')) : null;
+      this.minStars = number('minStars');
+      this.minRating = number('minRating');
+      this.minPrice = number('minPrice');
+      this.maxPrice = number('maxPrice');
       this.sort = params.get('sort') ?? '';
       this.page.set(Number(params.get('page') ?? 1));
       this.selectedAmenities.set(new Set(params.getAll('amenityIds')));
+
+      this.activeFilters.set(
+        [this.minStars, this.minRating, this.minPrice, this.maxPrice].filter((v) => v !== null)
+          .length + this.selectedAmenities().size
+      );
+
+      this.barStart.set({
+        city: this.city,
+        checkIn: this.checkIn,
+        checkOut: this.checkOut,
+        guests: this.guests,
+      });
 
       this.load();
     });
@@ -401,12 +572,12 @@ export class SearchComponent implements OnInit {
 
     this.api
       .searchHotels({
-        query: undefined,
         city: this.city || undefined,
         checkIn: hasSpan ? this.checkIn : undefined,
         checkOut: hasSpan ? this.checkOut : undefined,
         guests: this.guests,
         minStars: this.minStars ?? undefined,
+        minRating: this.minRating ?? undefined,
         minPrice: this.minPrice ?? undefined,
         maxPrice: this.maxPrice ?? undefined,
         amenityIds: [...this.selectedAmenities()],
@@ -430,19 +601,39 @@ export class SearchComponent implements OnInit {
       });
   }
 
+  protected research(query: StaySearch): void {
+    this.city = query.city;
+    this.checkIn = query.checkIn;
+    this.checkOut = query.checkOut;
+    this.guests = query.guests;
+    this.apply();
+  }
+
   protected toggleAmenity(id: string): void {
     this.selectedAmenities.update((set) => {
       const next = new Set(set);
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
+    this.apply();
+  }
+
+  protected clearAmenities(): void {
+    this.selectedAmenities.set(new Set());
+    this.apply();
+  }
+
+  protected setStars(value: number | null): void {
+    this.minStars = value;
+    this.apply();
+  }
+
+  protected setRating(value: number | null): void {
+    this.minRating = value;
+    this.apply();
   }
 
   protected apply(page = 1): void {
-    if (this.checkIn && this.checkOut && this.checkOut <= this.checkIn) {
-      this.checkOut = addDays(this.checkIn, 1);
-    }
-
     void this.router.navigate([], {
       relativeTo: this.route,
       queryParams: {
@@ -451,6 +642,7 @@ export class SearchComponent implements OnInit {
         checkOut: this.checkOut || null,
         guests: this.guests,
         minStars: this.minStars,
+        minRating: this.minRating,
         minPrice: this.minPrice,
         maxPrice: this.maxPrice,
         sort: this.sort || null,
@@ -460,19 +652,11 @@ export class SearchComponent implements OnInit {
     });
   }
 
-  protected goTo(page: number): void {
-    this.apply(page);
-  }
-
   protected reset(): void {
-    this.city = '';
-    this.checkIn = '';
-    this.checkOut = '';
-    this.guests = 2;
     this.minStars = null;
+    this.minRating = null;
     this.minPrice = null;
     this.maxPrice = null;
-    this.sort = '';
     this.selectedAmenities.set(new Set());
     this.apply();
   }
@@ -483,9 +667,4 @@ export class SearchComponent implements OnInit {
 
     return { checkIn: span.from, checkOut: span.to, guests: String(this.guests) };
   }
-
-  protected money(value: number | null): string {
-    return formatMoney(value);
-  }
-
 }

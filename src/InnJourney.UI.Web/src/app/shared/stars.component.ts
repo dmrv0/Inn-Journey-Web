@@ -1,16 +1,25 @@
 import { Component, computed, input } from '@angular/core';
 
+import { IconComponent } from './icon.component';
+
 /**
  * A property's official classification, 1 to 5. Distinct from the guest rating,
- * which is a number rather than a row of marks.
+ * which is shown as a number beside a single star.
  */
 @Component({
   selector: 'app-stars',
   standalone: true,
+  imports: [IconComponent],
   template: `
     <span class="stars" [attr.aria-label]="label()" role="img">
       @for (filled of marks(); track $index) {
-        <span class="star" [class.star--on]="filled" aria-hidden="true"></span>
+        <app-icon
+          name="star"
+          [size]="13"
+          [stroke]="1.2"
+          [filled]="filled"
+          [class.off]="!filled"
+        />
       }
     </span>
   `,
@@ -18,21 +27,13 @@ import { Component, computed, input } from '@angular/core';
     `
       .stars {
         display: inline-flex;
-        gap: 2px;
+        gap: 1px;
         align-items: center;
+        color: var(--star);
       }
 
-      /* Small squares rather than star glyphs: they sit on the same grid as the
-         ribbon cells, so a card reads as one system. */
-      .star {
-        width: 6px;
-        height: 6px;
-        border-radius: 1px;
-        background: var(--line);
-      }
-
-      .star--on {
-        background: var(--lamp);
+      .off {
+        color: var(--line-strong);
       }
     `,
   ],
