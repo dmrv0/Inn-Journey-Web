@@ -58,10 +58,6 @@ A property's rating is the average of those reviews and nothing else moves it. T
 
 ![An owner's occupancy board, rooms down the side and nights across the top](docs/screenshots/occupancy.jpg)
 
-**On a phone.**
-
-![The home, search and property pages at phone width](docs/screenshots/mobile.jpg)
-
 <details>
 <summary>The full home page</summary>
 
