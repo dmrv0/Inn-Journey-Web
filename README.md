@@ -2,6 +2,8 @@
 
 A hotel reservation platform. Travellers search by the nights they need, book a room and pay for it, then review the stay once it is done. Hotel owners manage their properties, rooms and bookings from an occupancy board. Administrators curate the catalogues that every property shares.
 
+![Search results for a three-night stay, with filters for price, hotel class and guest rating](docs/screenshots/search.jpg)
+
 ## Booked by the night
 
 Most booking sites ask you for a date. Inn Journey asks for the nights you actually need, and answers for the whole stretch at once.
@@ -37,6 +39,35 @@ Facilities and room types belong to the whole platform rather than to any one ho
 A review can only be written by someone who actually completed a stay, and only once per stay. There is no way to leave one without having been a guest.
 
 A property's rating is the average of those reviews and nothing else moves it. That is deliberately separate from the star classification, which is what the owner claims about the property rather than what guests found.
+
+## Screenshots
+
+**A property's page.** Photos, facilities, and every room priced for the nights you asked for.
+
+![A property page with a photo gallery, facilities, room list and booking card](docs/screenshots/hotel.jpg)
+
+**Paying for a stay.** The room is held while you pay, and confirmed once the payment goes through.
+
+![The payment step, with the stay summary beside it](docs/screenshots/payment.jpg)
+
+**Your stays.** Upcoming and past bookings in one place.
+
+![A traveller's list of upcoming stays](docs/screenshots/stays.jpg)
+
+**The occupancy board.** Every room against every night, so a quiet fortnight or a fully booked weekend shows at a glance.
+
+![An owner's occupancy board, rooms down the side and nights across the top](docs/screenshots/occupancy.jpg)
+
+**On a phone.**
+
+![The home, search and property pages at phone width](docs/screenshots/mobile.jpg)
+
+<details>
+<summary>The full home page</summary>
+
+![The home page, from the search hero down to the footer](docs/screenshots/home.jpg)
+
+</details>
 
 ## About this project
 
